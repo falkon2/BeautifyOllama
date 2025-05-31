@@ -1,7 +1,7 @@
 # BeautifyOllama
 
 <div align="center">
-  <img src="logo.png" alt="BeautifyOllama Logo" width="200" height="200">
+  <img src="beautifyOllama.png" alt="BeautifyOllama Logo" width="200" height="200">
   
   <p align="center">
     <strong>A modern, beautiful web interface for Ollama AI models</strong>
@@ -54,16 +54,11 @@ BeautifyOllama is an open-source web interface that enhances your local Ollama A
 
 ## 🎥 Demo
 
-<!-- Add your demo video here -->
-<!-- 
-### Video Demo
-[![BeautifyOllama Demo](https://img.youtube.com/vi/YOUR_VIDEO_ID/0.jpg)](https://www.youtube.com/watch?v=YOUR_VIDEO_ID)
 
-### Live Demo
-🚀 [Try BeautifyOllama Live](https://your-demo-url.com)
--->
+Video Demo
+[![BeautifyOllama Demo](https://img.youtube.com/vi/bE4F3rrqY8E/maxresdefault.jpg)](https://youtu.be/bE4F3rrqY8E)
 
-*Demo video and live preview coming soon. Follow the project for updates!*
+
 
 ## ✨ Features
 
