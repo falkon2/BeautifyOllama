@@ -49,7 +49,7 @@ Before running this application, you need to have Ollama installed and running o
 
 1. **Clone the repository**:
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/falkon2/OllamaChat.git
    cd beautifyollama
    ```
 
