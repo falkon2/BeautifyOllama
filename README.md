@@ -1,276 +1,398 @@
-# BeautifyOllama 🎨
+# BeautifyOllama
 
-A beautiful, modern web interface for chatting with your local Ollama models. Features stunning visual effects, responsive design, and a clean user experience.
+<div align="center">
+  <img src="logo.png" alt="BeautifyOllama Logo" width="200" height="200">
+  
+  <p align="center">
+    <strong>A modern, beautiful web interface for Ollama AI models</strong>
+  </p>
+  
+  <p align="center">
+    Transform your local AI interactions with an elegant, feature-rich chat interface
+  </p>
 
-![Next.js](https://img.shields.io/badge/Next.js-15.3.3-black)
-![React](https://img.shields.io/badge/React-19.0.0-blue)
-![TailwindCSS](https://img.shields.io/badge/TailwindCSS-4.0-06B6D4)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6)
+  <p align="center">
+    <a href="https://github.com/falkon2/BeautifyOllama/stargazers">
+      <img src="https://img.shields.io/github/stars/falkon2/BeautifyOllama?style=for-the-badge&logo=github&color=FFD700" alt="GitHub Stars">
+    </a>
+    <a href="https://github.com/falkon2/BeautifyOllama/network/members">
+      <img src="https://img.shields.io/github/forks/falkon2/BeautifyOllama?style=for-the-badge&logo=github&color=87CEEB" alt="GitHub Forks">
+    </a>
+    <a href="https://github.com/falkon2/BeautifyOllama/issues">
+      <img src="https://img.shields.io/github/issues/falkon2/BeautifyOllama?style=for-the-badge&logo=github&color=FF6B6B" alt="GitHub Issues">
+    </a>
+    <a href="https://github.com/falkon2/BeautifyOllama/blob/main/LICENSE">
+      <img src="https://img.shields.io/github/license/falkon2/BeautifyOllama?style=for-the-badge&color=32CD32" alt="License">
+    </a>
+  </p>
+
+  <p align="center">
+    <img src="https://img.shields.io/badge/Next.js-15.3.3-000000?style=for-the-badge&logo=next.js&logoColor=white" alt="Next.js">
+    <img src="https://img.shields.io/badge/React-19.0.0-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React">
+    <img src="https://img.shields.io/badge/TypeScript-5.0-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript">
+    <img src="https://img.shields.io/badge/TailwindCSS-4.0-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white" alt="TailwindCSS">
+  </p>
+
+  <p align="center">
+    <a href="#demo">Demo</a> •
+    <a href="#features">Features</a> •
+    <a href="#installation">Installation</a> •
+    <a href="#usage">Usage</a> •
+    <a href="#contributing">Contributing</a> •
+    <a href="#roadmap">Roadmap</a>
+  </p>
+</div>
+
+---
+
+## 📖 About
+
+BeautifyOllama is an open-source web interface that enhances your local Ollama AI model interactions with a beautiful, modern design. Built with cutting-edge web technologies, it provides a seamless chat experience with stunning visual effects and enterprise-grade functionality.
+
+> **⚠️ Early Development Notice**  
+> This project is in active development. Features and APIs may change. We welcome contributions and feedback from the community.
+
+## 🎥 Demo
+
+<!-- Add your demo video here -->
+<!-- 
+### Video Demo
+[![BeautifyOllama Demo](https://img.youtube.com/vi/YOUR_VIDEO_ID/0.jpg)](https://www.youtube.com/watch?v=YOUR_VIDEO_ID)
+
+### Live Demo
+🚀 [Try BeautifyOllama Live](https://your-demo-url.com)
+-->
+
+*Demo video and live preview coming soon. Follow the project for updates!*
 
 ## ✨ Features
 
-- **🎬 Animated Shine Borders**: Beautiful animated borders around messages that cycle through different colors
-- **📱 Mobile-First Design**: Fully responsive interface that works seamlessly on desktop, tablet, and mobile devices
-- **🌙 Dark/Light Theme**: Built-in theme switching with system preference detection
-- **⚡ Real-time Chat**: Stream responses from your local Ollama models in real-time
-- **🎯 Clean Plain Text**: Simplified message rendering focusing on content without markdown complexity
-- **🔄 Model Selection**: Easy switching between different Ollama models
-- **⌨️ Keyboard Shortcuts**: Send messages with Enter, add new lines with Shift+Enter
-- **🎨 Modern UI**: Beautiful glassmorphism effects and smooth animations throughout
+### Current Features
+- **🎬 Animated Shine Borders** - Eye-catching animated message borders with color cycling
+- **📱 Responsive Design** - Mobile-first approach with seamless cross-device compatibility  
+- **🌙 Theme System** - Dark/light mode with system preference detection
+- **⚡ Real-time Streaming** - Live response streaming from Ollama models
+- **🎯 Clean Interface** - Simplified message rendering focused on readability
+- **🔄 Model Management** - Easy switching between available Ollama models
+- **⌨️ Smart Input** - Keyboard shortcuts (Enter to send, Shift+Enter for newlines)
+- **🎨 Modern UI/UX** - Glassmorphism effects and smooth micro-animations
 
-## 🚀 Quick Start
+### 🚧 Upcoming Features
+- **🔐 API Key Management** - Secure storage and management of API credentials
+- **💾 Conversation History** - Persistent chat history with search functionality
+- **🔧 Advanced Settings** - Customizable model parameters and system prompts
+- **📁 File Upload Support** - Document and image processing capabilities
+- **🌐 Multi-language Support** - Internationalization for global users
+- **📊 Usage Analytics** - Token usage tracking and conversation insights
+- **🔌 Plugin System** - Extensible architecture for third-party integrations
+- **☁️ Cloud Sync** - Optional cloud backup for conversations and settings
+
+## 🚀 Installation
 
 ### Prerequisites
 
-Before running this application, you need to have Ollama installed and running on your system.
+Ensure you have the following installed on your system:
 
-1. **Install Ollama** (if you haven't already):
-   ```bash
-   # macOS
-   brew install ollama
-   
-   # Or download from https://ollama.ai
-   ```
+- **Node.js** (v18 or higher)
+- **npm**, **yarn**, or **pnpm**
+- **Ollama** (for local AI model serving)
 
-2. **Start Ollama service**:
-   ```bash
-   ollama serve
-   ```
+### Step 1: Install Ollama
 
-3. **Pull a model** (e.g., Llama 2):
-   ```bash
-   ollama pull llama2
-   # or any other model you prefer
-   ollama pull codellama
-   ollama pull mistral
-   ```
+```bash
+# macOS
+brew install ollama
 
-### Installation
+# Linux
+curl -fsSL https://ollama.ai/install.sh | sh
 
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/falkon2/OllamaChat.git
-   cd OllamaChat
-   ```
+# Windows
+# Download from https://ollama.ai/download
+```
 
-2. **Install dependencies**:
-   ```bash
-   npm install
-   # or
-   yarn install
-   # or
-   pnpm install
-   ```
+### Step 2: Setup Ollama Models
 
-3. **Start the development server**:
-   ```bash
-   npm run dev
-   # or
-   yarn dev
-   # or
-   pnpm dev
-   ```
+```bash
+# Start Ollama service
+ollama serve
 
-4. **Open your browser** and navigate to [http://localhost:3000](http://localhost:3000)
+# Pull recommended models
+ollama pull llama2
+ollama pull codellama
+ollama pull mistral
 
-## 🛠️ Configuration
+# Verify installation
+ollama list
+```
 
-### Ollama Connection
+### Step 3: Install BeautifyOllama
 
-By default, the application connects to Ollama at `http://localhost:11434`. If your Ollama instance is running on a different host or port, you can modify the configuration in the chat component.
+```bash
+# Clone the repository
+git clone https://github.com/falkon2/BeautifyOllama.git
+cd BeautifyOllama
+
+# Install dependencies
+npm install
+# or
+yarn install
+# or  
+pnpm install
+
+# Start development server
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+```
+
+### Step 4: Access the Application
+
+Open your browser and navigate to [http://localhost:3000](http://localhost:3000)
+
+## 🔧 Configuration
 
 ### Environment Variables
 
-Create a `.env.local` file in the root directory if you need to customize any settings:
+Create a `.env.local` file in the project root:
 
 ```env
-# Optional: Custom Ollama API endpoint
+# Ollama Configuration
 NEXT_PUBLIC_OLLAMA_API_URL=http://localhost:11434
+NEXT_PUBLIC_DEFAULT_MODEL=llama2
+
+# Feature Flags (Coming Soon)
+NEXT_PUBLIC_ENABLE_ANALYTICS=false
+NEXT_PUBLIC_ENABLE_CLOUD_SYNC=false
+
+# API Keys (Future Feature)
+# OPENAI_API_KEY=your_openai_key_here
+# ANTHROPIC_API_KEY=your_anthropic_key_here
 ```
 
-## 🏗️ How It Works
+### Advanced Configuration
 
-### Architecture Overview
-
-The application is built with modern web technologies:
-
-- **Next.js 15**: React framework with App Router for optimal performance
-- **React 19**: Latest React features for enhanced user experience
-- **TailwindCSS 4**: Utility-first CSS framework for rapid UI development
-- **Framer Motion**: Smooth animations and transitions
-- **TypeScript**: Type safety and better developer experience
-
-### Key Components
-
-1. **Chat Component** (`src/components/Chat.tsx`):
-   - Manages conversation state and message history
-   - Handles streaming responses from Ollama API
-   - Implements responsive layout with mobile sidebar
-   - Features animated shine borders around messages
-
-2. **MarkdownRenderer** (`src/components/MarkdownRenderer.tsx`):
-   - Simplified plain text renderer
-   - Preserves whitespace and line breaks
-   - No markdown processing for clean, readable output
-
-3. **ShineBorder** (`src/components/ShineBorder.tsx`):
-   - Animated border component with customizable colors
-   - 10-second animation cycles for visual appeal
-   - Different colors for user and assistant messages
-
-4. **Theme Provider** (`src/components/theme-provider.tsx`):
-   - Dark/light theme management
-   - System preference detection
-   - Smooth theme transitions
-
-### Message Flow
-
-1. User types a message and presses Enter
-2. Message is sent to the local Ollama API endpoint
-3. Response is streamed back in real-time
-4. Messages are displayed with animated shine borders
-5. Conversation history is maintained in component state
-
-## 📱 Mobile Experience
-
-The interface is optimized for mobile devices with:
-
-- **Responsive Layout**: Adapts to different screen sizes
-- **Mobile Sidebar**: Collapsible navigation with backdrop overlay
-- **Touch-Friendly**: Appropriately sized touch targets
-- **Optimized Typography**: Readable text sizes across devices
-- **Smooth Animations**: Performance-optimized animations for mobile
-
-## 🎨 Customization
-
-### Themes
-
-The application supports custom themes through TailwindCSS. You can modify colors and styles in:
-
-- `src/app/globals.css`: Global styles and animations
-- `tailwind.config.js`: Theme configuration
-- Components: Individual component styling
-
-### Shine Border Colors
-
-Customize the animated border colors in `src/components/Chat.tsx`:
+For custom Ollama installations or advanced setups, modify the configuration in `src/config/ollama.ts`:
 
 ```typescript
-// User messages (white shine)
-<ShineBorder color="#ffffff" borderRadius={12} duration={10}>
-
-// Assistant messages (blue shine)  
-<ShineBorder color="#3b82f6" borderRadius={12} duration={10}>
+export const ollamaConfig = {
+  apiUrl: process.env.NEXT_PUBLIC_OLLAMA_API_URL || 'http://localhost:11434',
+  defaultModel: process.env.NEXT_PUBLIC_DEFAULT_MODEL || 'llama2',
+  timeout: 30000,
+  maxRetries: 3
+}
 ```
 
-## 🚢 Deployment
+## 📚 Usage
 
-### Vercel (Recommended)
+### Basic Chat Interface
 
-1. Push your code to a Git repository
-2. Connect your repository to [Vercel](https://vercel.com)
-3. Deploy with one click
+1. **Start a Conversation**: Type your message in the input field
+2. **Send Messages**: Press `Enter` or click the send button
+3. **New Lines**: Use `Shift + Enter` for multi-line messages
+4. **Switch Models**: Use the model selector in the sidebar
+5. **Theme Toggle**: Click the theme button to switch between light/dark modes
 
-### Docker
+### Mobile Usage
 
-```dockerfile
-FROM node:18-alpine
+- **Access Sidebar**: Tap the menu button on mobile devices
+- **Touch Gestures**: Swipe gestures for navigation
+- **Responsive Layout**: Optimized for all screen sizes
 
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
+## 🏗️ Architecture
 
-EXPOSE 3000
-CMD ["npm", "start"]
-```
+### Technology Stack
 
-### Self-Hosted
-
-```bash
-npm run build
-npm start
-```
-
-The application will be available at `http://localhost:3000`.
-
-## 🔧 Development
+| Layer | Technology | Purpose |
+|-------|------------|---------|
+| **Frontend** | Next.js 15 + React 19 | Modern React framework with App Router |
+| **Styling** | TailwindCSS 4 | Utility-first CSS framework |
+| **Animation** | Framer Motion | Smooth animations and transitions |
+| **Language** | TypeScript | Type safety and developer experience |
+| **State Management** | React Hooks | Local state management |
+| **Theme** | next-themes | Dark/light mode functionality |
 
 ### Project Structure
 
 ```
 beautifyollama/
 ├── src/
-│   ├── app/                 # Next.js App Router
-│   ├── components/          # React components
-│   │   ├── Chat.tsx        # Main chat interface
+│   ├── app/                    # Next.js App Router
+│   │   ├── globals.css        # Global styles
+│   │   ├── layout.tsx         # Root layout
+│   │   └── page.tsx           # Home page
+│   ├── components/            # React components
+│   │   ├── Chat.tsx          # Main chat interface
+│   │   ├── ShineBorder.tsx   # Animated border component
 │   │   ├── MarkdownRenderer.tsx
-│   │   ├── ShineBorder.tsx
-│   │   └── ui/             # UI components
-│   └── lib/                # Utilities
-├── public/                 # Static assets
-├── tailwind.config.js      # TailwindCSS configuration
-└── package.json           # Dependencies and scripts
+│   │   └── ui/               # Reusable UI components
+│   ├── config/               # Configuration files
+│   ├── hooks/                # Custom React hooks
+│   ├── lib/                  # Utility functions
+│   └── types/                # TypeScript type definitions
+├── public/                   # Static assets
+├── docs/                     # Documentation
+└── tests/                    # Test files
 ```
 
-### Available Scripts
+## 🤝 Contributing
 
-- `npm run dev`: Start development server with Turbopack
-- `npm run build`: Build for production
-- `npm run start`: Start production server
-- `npm run lint`: Run ESLint
+We welcome contributions from the community! BeautifyOllama is an early-stage project with lots of opportunities to make an impact.
 
-### Key Dependencies
+### Ways to Contribute
 
-- **UI Framework**: Next.js 15, React 19
-- **Styling**: TailwindCSS 4, Framer Motion
-- **Icons**: Lucide React, Tabler Icons
-- **Theme**: next-themes
-- **Utilities**: clsx, tailwind-merge
+1. **🐛 Bug Reports** - Help us identify and fix issues
+2. **💡 Feature Requests** - Suggest new functionality
+3. **📝 Code Contributions** - Submit pull requests
+4. **📚 Documentation** - Improve README, guides, and code comments
+5. **🎨 Design** - UI/UX improvements and suggestions
+6. **🧪 Testing** - Help test new features and edge cases
+
+### Development Setup
+
+1. **Fork the repository** on GitHub
+2. **Clone your fork** locally:
+   ```bash
+   git clone https://github.com/your-username/BeautifyOllama.git
+   cd BeautifyOllama
+   ```
+3. **Create a branch** for your feature:
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+4. **Install dependencies**:
+   ```bash
+   npm install
+   ```
+5. **Start development server**:
+   ```bash
+   npm run dev
+   ```
+
+### Contribution Guidelines
+
+- **Code Style**: Follow the existing code style and use TypeScript
+- **Commits**: Use conventional commit messages (`feat:`, `fix:`, `docs:`, etc.)
+- **Testing**: Add tests for new features when applicable
+- **Documentation**: Update README and inline comments for new features
+- **Pull Requests**: Provide clear descriptions and link related issues
+
+### Development Scripts
+
+```bash
+npm run dev          # Start development server
+npm run build        # Build for production
+npm run start        # Start production server
+npm run lint         # Run ESLint
+npm run type-check   # Run TypeScript compiler
+npm test             # Run tests (when available)
+```
+
+## 🛣️ Roadmap
+
+### Phase 1: Core Features (Current)
+- [x] Basic chat interface
+- [x] Ollama integration
+- [x] Theme system
+- [x] Responsive design
+- [ ] Enhanced error handling
+- [ ] Performance optimizations
+
+### Phase 2: Advanced Features (Next)
+- [ ] API key management system
+- [ ] Conversation history persistence
+- [ ] File upload and processing
+- [ ] Advanced model settings
+- [ ] Export/import conversations
+
+### Phase 3: Enterprise Features (Future)
+- [ ] Multi-user support
+- [ ] Cloud synchronization
+- [ ] Plugin architecture
+- [ ] Usage analytics
+- [ ] Advanced security features
+
+### Phase 4: Ecosystem (Long-term)
+- [ ] Mobile applications
+- [ ] Desktop applications
+- [ ] API for third-party integrations
+- [ ] Marketplace for extensions
+
+## 📊 Project Status
+
+| Feature | Status | Priority |
+|---------|--------|----------|
+| Core Chat | ✅ Complete | High |
+| Theme System | ✅ Complete | High |
+| Mobile Support | ✅ Complete | High |
+| API Keys | 🚧 In Progress | High |
+| File Upload | 📋 Planned | Medium |
+| Cloud Sync | 📋 Planned | Low |
 
 ## 🐛 Troubleshooting
 
 ### Common Issues
 
-1. **Ollama not responding**:
-   - Ensure Ollama is running: `ollama serve`
-   - Check if models are installed: `ollama list`
-   - Verify connection at `http://localhost:11434`
+**Ollama Connection Failed**
+```bash
+# Check if Ollama is running
+ollama serve
 
-2. **Hydration errors**:
-   - Clear browser cache and restart development server
-   - Ensure theme provider is properly configured
+# Verify models are available
+ollama list
 
-3. **Mobile layout issues**:
-   - Check viewport meta tag in layout
-   - Verify Tailwind responsive classes
+# Test API endpoint
+curl http://localhost:11434/api/tags
+```
 
-4. **Build errors**:
-   - Clear `.next` folder: `rm -rf .next`
-   - Reinstall dependencies: `npm ci`
+**Build Errors**
+```bash
+# Clear Next.js cache
+rm -rf .next
 
-### Performance Tips
+# Reinstall dependencies
+rm -rf node_modules package-lock.json
+npm install
+```
 
-- Use production build for better performance: `npm run build && npm start`
-- Optimize images in the `public` folder
-- Consider implementing message pagination for long conversations
+**Hydration Errors**
+- Clear browser cache and localStorage
+- Restart development server
+- Check for theme provider issues
 
-## 🤝 Contributing
+### Getting Help
 
-Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
+- 📖 [Documentation](docs/)
+- 💬 [GitHub Discussions](https://github.com/falkon2/BeautifyOllama/discussions)
+- 🐛 [Issue Tracker](https://github.com/falkon2/BeautifyOllama/issues)
 
 ## 📄 License
 
-This project is open source and available under the [MIT License](LICENSE).
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
-- [Ollama](https://ollama.ai) for the excellent local AI model runtime
-- [Next.js](https://nextjs.org) team for the amazing React framework
-- [TailwindCSS](https://tailwindcss.com) for the utility-first CSS framework
-- [Framer Motion](https://www.framer.com/motion/) for smooth animations
+- **[Ollama Team](https://ollama.ai)** - For the excellent local AI runtime
+- **[Next.js Team](https://nextjs.org)** - For the amazing React framework  
+- **[Vercel](https://vercel.com)** - For seamless deployment platform
+- **[TailwindCSS](https://tailwindcss.com)** - For the utility-first CSS framework
+- **[Framer Motion](https://www.framer.com/motion/)** - For beautiful animations
+- **All Contributors** - For making this project better
+
+## ⭐ Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=falkon2/BeautifyOllama&type=Date)](https://star-history.com/#falkon2/BeautifyOllama&Date)
 
 ---
 
-**Enjoy chatting with your local AI models in style! 🎉**
+<div align="center">
+  <p>
+    Made with ❤️ by the BeautifyOllama team
+  </p>
+  <p>
+    <a href="https://github.com/falkon2/BeautifyOllama">⭐ Star us on GitHub</a> •
+    <a href="https://github.com/falkon2/BeautifyOllama/issues">🐛 Report Bug</a> •
+    <a href="https://github.com/falkon2/BeautifyOllama/discussions">💬 Join Discussion</a>
+  </p>
+</div>
