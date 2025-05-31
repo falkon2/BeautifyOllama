@@ -59,8 +59,7 @@ Video Demo
 
 [![BeautifyOllama Demo](https://img.youtube.com/vi/bE4F3rrqY8E/maxresdefault.jpg)](https://youtu.be/bE4F3rrqY8E)
 
-
-![BeautifyOllama Interface](https://github.com/user-attachments/assets/8ed11232-de9c-469b-b332-143ca41daf15)
+https://github.com/user-attachments/assets/8ed11232-de9c-469b-b332-143ca41daf15
 
 ## ✨ Features
 
