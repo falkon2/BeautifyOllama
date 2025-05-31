@@ -57,11 +57,11 @@ BeautifyOllama is an open-source web interface that enhances your local Ollama A
 
 Video Demo
 
+[![BeautifyOllama Demo](https://img.youtube.com/vi/bE4F3rrqY8E/maxresdefault.jpg)](https://youtu.be/bE4F3rrqY8E)
 
 
 
-https://github.com/user-attachments/assets/8ed11232-de9c-469b-b332-143ca41daf15
-
+![BeautifyOllama Screenshot](https://github.com/user-attachments/assets/8ed11232-de9c-469b-b332-143ca41daf15)
 
 ## ✨ Features
 
