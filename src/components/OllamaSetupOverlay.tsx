@@ -161,14 +161,34 @@ export function OllamaSetupOverlay({
           throw installError;
         }
       } else if (platform === 'windows') {
-        setInstallProgress('Downloading and installing Ollama...');
-        const command = 'Download Ollama installer';
+        setInstallProgress('Opening Ollama download page...');
+        const command = 'Open Ollama download page';
         const logId = onCommandLog ? onCommandLog(command) : '';
         
         try {
-          await invoke('install_ollama_windows');
+          const result = await invoke('install_ollama_windows') as string;
           if (onCommandUpdate) {
-            onCommandUpdate(logId, 'success', 'Ollama installer downloaded');
+            onCommandUpdate(logId, 'success', result);
+          }
+          setInstallProgress(result);
+          // Don't proceed with service start on Windows since user needs to manually install
+          setIsLoading(false);
+          return;
+        } catch (installError) {
+          if (onCommandUpdate) {
+            onCommandUpdate(logId, 'error', undefined, `Failed to open download page: ${installError}`);
+          }
+          throw installError;
+        }
+      } else if (platform === 'linux') {
+        setInstallProgress('Installing Ollama via official script...');
+        const command = 'curl -fsSL https://ollama.com/install.sh | sh';
+        const logId = onCommandLog ? onCommandLog(command) : '';
+        
+        try {
+          const result = await invoke('install_ollama_linux') as string;
+          if (onCommandUpdate) {
+            onCommandUpdate(logId, 'success', result);
           }
         } catch (installError) {
           if (onCommandUpdate) {
@@ -676,6 +696,7 @@ export function OllamaSetupOverlay({
     switch (platform) {
       case 'macos': return 'macOS';
       case 'windows': return 'Windows';
+      case 'linux': return 'Linux';
       default: return 'Unknown Platform';
     }
   };
@@ -683,7 +704,8 @@ export function OllamaSetupOverlay({
   const getInstallMethod = () => {
     switch (platform) {
       case 'macos': return 'Homebrew (brew install ollama)';
-      case 'windows': return 'Official installer from ollama.ai';
+      case 'windows': return 'Official installer download';
+      case 'linux': return 'Official install script (curl | sh)';
       default: return 'Manual installation required';
     }
   };
