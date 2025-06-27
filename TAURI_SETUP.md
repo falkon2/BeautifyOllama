@@ -5,7 +5,7 @@
 ### 1. Tauri Configuration
 - **File**: `src-tauri/tauri.conf.json`
 - **Bundle ID**: `com.beautifyollama.desktop` (fixed from `.app` to avoid conflicts)
-- **Targets**: DMG (macOS), MSI/NSIS (Windows), DEB/RPM/AppImage (Linux)
+- **Targets**: DMG (macOS), MSI/NSIS (Windows)
 - **Icons**: Using your `icon.png` with generated platform-specific formats
 
 ### 2. Project Icon Integration
@@ -20,15 +20,14 @@
 {
   "build:all": "tauri build",                           // All platforms
   "build:mac": "tauri build --bundles dmg",            // macOS DMG
-  "build:windows": "tauri build --bundles msi,nsis",   // Windows installers
-  "build:linux": "tauri build --bundles deb,rpm,appimage" // Linux packages
+  "build:windows": "tauri build --bundles msi,nsis"    // Windows installers
 }
 ```
 
 ### 4. GitHub Actions Workflow
 - **File**: `.github/workflows/build.yml`
 - **Triggers**: Git tags (v*) or manual dispatch
-- **Platforms**: macOS, Ubuntu, Windows
+- **Platforms**: macOS, Windows
 - **Output**: Automatic releases with cross-platform builds
 
 ### 5. Documentation
@@ -46,7 +45,6 @@ npm run desktop      # Run desktop app in development mode
 npm run build:all    # Build all formats for current OS
 npm run build:mac    # macOS only (requires macOS)
 npm run build:windows # Windows only (requires Windows)
-npm run build:linux   # Linux only (requires Linux)
 ```
 
 ### Cross-Platform Building

@@ -15,8 +15,7 @@
     "build:desktop": "npm run tauri:build",
     "build:all": "tauri build",
     "build:mac": "tauri build --bundles dmg",
-    "build:windows": "tauri build --bundles msi,nsis", 
-    "build:linux": "tauri build --bundles deb,rpm,appimage"
+    "build:windows": "tauri build --bundles msi,nsis"
   },
   "dependencies": {
     "@radix-ui/react-select": "^2.2.5",
