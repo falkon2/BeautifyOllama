@@ -82,26 +82,32 @@ export interface DownloadProgress {
 
 export async function checkOllamaStatus(): Promise<OllamaStatus> {
   try {
-    // Try to connect to Ollama API using standard fetch
+    // Primary method: Try to connect to Ollama API using standard fetch
     const res = await fetch("http://localhost:11434/api/tags", {
       method: "GET",
+      signal: AbortSignal.timeout(3000), // 3 second timeout
     });
     
     if (res.ok) {
-      return { isInstalled: true, isRunning: true };
+      // Service is running, get version info
+      try {
+        const version = await invoke('check_ollama_installed') as string;
+        return { isInstalled: true, isRunning: true, version };
+      } catch {
+        return { isInstalled: true, isRunning: true };
+      }
     }
   } catch (e) {
-    // Ollama is not running, check if it's installed
-    try {
-      // Try to get Ollama version using invoke (requires shell permission)
-      const version = await invoke('check_ollama_installed');
-      return { isInstalled: true, isRunning: false, version: version as string };
-    } catch (e) {
-      return { isInstalled: false, isRunning: false };
-    }
+    // API not reachable, check if Ollama is installed but not running
   }
   
-  return { isInstalled: false, isRunning: false };
+  // Secondary method: Check if Ollama is installed (command available)
+  try {
+    const version = await invoke('check_ollama_installed') as string;
+    return { isInstalled: true, isRunning: false, version };
+  } catch (e) {
+    return { isInstalled: false, isRunning: false };
+  }
 }
 
 export async function getPlatform(): Promise<string> {

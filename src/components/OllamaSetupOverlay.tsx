@@ -68,6 +68,9 @@ export function OllamaSetupOverlay({
   const [loadedModel, setLoadedModel] = useState<string | null>(null);
   const [isOllamaRunning, setIsOllamaRunning] = useState<boolean>(false);
   const [showAddModels, setShowAddModels] = useState<boolean>(false);
+  const [diagnosticInfo, setDiagnosticInfo] = useState<string>('');
+  const [isRunningDiagnostics, setIsRunningDiagnostics] = useState<boolean>(false);
+  const [isFixingService, setIsFixingService] = useState<boolean>(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -365,9 +368,28 @@ export function OllamaSetupOverlay({
     try {
       const models = await invoke('list_installed_models') as string[];
       setInstalledModels(models);
+      
+      // Clear any previous errors if models loaded successfully
+      if (models.length > 0) {
+        setError(null);
+      }
     } catch (e: any) {
       console.error('Failed to load installed models:', e);
       setInstalledModels([]);
+      
+      // Show helpful error message for Windows users
+      if (platform === 'windows') {
+        const errorMsg = e.toString() || 'Failed to load models';
+        if (errorMsg.includes('Make sure Ollama is installed') || 
+            errorMsg.includes('not found') || 
+            errorMsg.includes('not accessible')) {
+          setError('Unable to list models. This usually means Ollama service is not running or not properly installed. Try using the Auto-Fix Service button above.');
+        } else {
+          setError(`Model listing failed: ${errorMsg}. Try the diagnostics tools above for help.`);
+        }
+      } else {
+        setError('Failed to load installed models');
+      }
     }
   };
 
@@ -710,6 +732,65 @@ export function OllamaSetupOverlay({
     }
   };
 
+  const runWindowsDiagnostics = async () => {
+    if (platform !== 'windows') return;
+    
+    setIsRunningDiagnostics(true);
+    setError(null);
+    
+    const logId = onCommandLog?.('Running Windows Ollama diagnostics...');
+    
+    try {
+      const result = await invoke('diagnose_windows_ollama_issues') as string;
+      setDiagnosticInfo(result);
+      onCommandUpdate?.(logId || '', 'success', result);
+    } catch (err: any) {
+      const errorMsg = err.toString() || 'Diagnostics failed';
+      setError(errorMsg);
+      onCommandUpdate?.(logId || '', 'error', undefined, errorMsg);
+    } finally {
+      setIsRunningDiagnostics(false);
+    }
+  };
+
+  const fixWindowsOllamaService = async () => {
+    if (platform !== 'windows') return;
+    
+    setIsFixingService(true);
+    setError(null);
+    
+    const logId = onCommandLog?.('Attempting to fix Windows Ollama service...');
+    
+    try {
+      const result = await invoke('fix_windows_ollama_service') as string;
+      onCommandUpdate?.(logId || '', 'success', result);
+      
+      // Refresh the status after fix
+      setTimeout(async () => {
+        try {
+          const newStatus = await checkOllamaStatus();
+          setStatus(newStatus);
+          setIsOllamaRunning(newStatus.isRunning);
+          
+          if (newStatus.isRunning) {
+            // Try to reload models
+            await loadInstalledModels();
+            setError(null);
+          }
+        } catch (e) {
+          console.error('Failed to refresh status after fix:', e);
+        }
+      }, 2000);
+      
+    } catch (err: any) {
+      const errorMsg = err.toString() || 'Fix attempt failed';
+      setError(errorMsg);
+      onCommandUpdate?.(logId || '', 'error', undefined, errorMsg);
+    } finally {
+      setIsFixingService(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -1041,6 +1122,53 @@ export function OllamaSetupOverlay({
                   </div>
                 </div>
               </div>
+
+              {/* Windows Diagnostics Section */}
+              {platform === 'windows' && !isOllamaRunning && (
+                <div className="p-4 border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950 rounded-lg">
+                  <div className="space-y-3">
+                    <div>
+                      <h4 className="font-medium text-orange-700 dark:text-orange-300">Windows Troubleshooting</h4>
+                      <p className="text-sm text-orange-600 dark:text-orange-400">
+                        Having issues with model selection or chat? Use these tools to diagnose and fix common Windows problems.
+                      </p>
+                    </div>
+                    <div className="flex space-x-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={runWindowsDiagnostics}
+                        disabled={isRunningDiagnostics || isLoading}
+                      >
+                        {isRunningDiagnostics ? (
+                          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                        ) : (
+                          <Search className="h-4 w-4 mr-1" />
+                        )}
+                        Run Diagnostics
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="default"
+                        onClick={fixWindowsOllamaService}
+                        disabled={isFixingService || isLoading}
+                      >
+                        {isFixingService ? (
+                          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-4 w-4 mr-1" />
+                        )}
+                        Auto-Fix Service
+                      </Button>
+                    </div>
+                    {diagnosticInfo && (
+                      <div className="mt-3 p-3 bg-gray-100 dark:bg-gray-800 rounded text-xs font-mono whitespace-pre-wrap max-h-48 overflow-y-auto">
+                        {diagnosticInfo}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Loaded Model Display */}
               {loadedModel && (
