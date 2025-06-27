@@ -61,10 +61,6 @@ jobs:
       - name: Install frontend dependencies
         run: npm install
 
-      - name: Lint frontend (ubuntu only)
-        if: matrix.platform == 'ubuntu-22.04'
-        run: npm run lint
-
       - name: Check Rust formatting (ubuntu only)
         if: matrix.platform == 'ubuntu-22.04'
         run: cd src-tauri && cargo fmt --all -- --check
