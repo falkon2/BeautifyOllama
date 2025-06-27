@@ -23,11 +23,9 @@ jobs:
       matrix:
         include:
           - platform: 'macos-latest'
-            args: '--target aarch64-apple-darwin'
-          - platform: 'macos-latest'
-            args: '--target x86_64-apple-darwin'
+            target: ''
           - platform: 'windows-latest'
-            args: ''
+            target: ''
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -42,8 +40,6 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
@@ -54,7 +50,7 @@ jobs:
         run: npm install
 
       - name: Build the app
-        run: npm run tauri:build ${{ matrix.args }}
+        run: npm run tauri:build
 
       - name: Upload artifacts (windows only)
         if: matrix.platform == 'windows-latest'
@@ -63,19 +59,12 @@ jobs:
           name: windows-artifacts
           path: src-tauri/target/release/bundle/
 
-      - name: Upload artifacts (macos aarch64)
-        if: matrix.platform == 'macos-latest' && matrix.args == '--target aarch64-apple-darwin'
+      - name: Upload artifacts (macos)
+        if: matrix.platform == 'macos-latest'
         uses: actions/upload-artifact@v4
         with:
-          name: macos-aarch64-artifacts
-          path: src-tauri/target/aarch64-apple-darwin/release/bundle/
-
-      - name: Upload artifacts (macos x86_64)
-        if: matrix.platform == 'macos-latest' && matrix.args == '--target x86_64-apple-darwin'
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-x86_64-artifacts
-          path: src-tauri/target/x86_64-apple-darwin/release/bundle/
+          name: macos-artifacts
+          path: src-tauri/target/release/bundle/
 
   create-release:
     needs: test-and-build
@@ -101,7 +90,7 @@ jobs:
             --notes "Download the appropriate installer for your platform:
           
           - **Windows**: .msi or .exe file
-          - **macOS**: .dmg file (choose Intel or Apple Silicon)"
+          - **macOS**: .dmg file"
 
           # Upload all artifacts
           find artifacts -type f \( -name "*.msi" -o -name "*.exe" -o -name "*.dmg" \) -exec gh release upload ${{ github.ref_name }} {} \;
