@@ -4,12 +4,30 @@ use std::path::Path;
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
 
+// Helper function to generate extended PATH based on platform
+fn get_extended_path() -> String {
+    let current_path = std::env::var("PATH").unwrap_or_default();
+    
+    if cfg!(target_os = "macos") {
+        format!("{}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin", current_path)
+    } else if cfg!(target_os = "linux") {
+        format!("{}:/usr/local/bin:/usr/bin:/bin:/home/{}/.local/bin", 
+            current_path, 
+            std::env::var("USER").unwrap_or_default())
+    } else {
+        // Windows uses different PATH format and structure
+        current_path
+    }
+}
+
 #[tauri::command]
 fn get_platform() -> String {
     if cfg!(target_os = "macos") {
         "macos".to_string()
     } else if cfg!(target_os = "windows") {
         "windows".to_string()
+    } else if cfg!(target_os = "linux") {
+        "linux".to_string()
     } else {
         "unknown".to_string()
     }
@@ -38,6 +56,16 @@ fn check_ollama_installation_paths() -> bool {
         Path::new(program_files_path).exists() || 
         Path::new(program_files_x86_path).exists() ||
         Path::new(&appdata_path).exists()
+    } else if cfg!(target_os = "linux") {
+        // Check common Linux installation paths
+        let usr_bin_path = "/usr/bin/ollama";
+        let usr_local_bin_path = "/usr/local/bin/ollama";
+        let home_local_bin = format!("{}/.local/bin/ollama", 
+            std::env::var("HOME").unwrap_or_default());
+        
+        Path::new(usr_bin_path).exists() || 
+        Path::new(usr_local_bin_path).exists() ||
+        Path::new(&home_local_bin).exists()
     } else {
         false
     }
@@ -85,8 +113,8 @@ async fn install_ollama_macos() -> Result<String, String> {
     let current_path = std::env::var("PATH").unwrap_or_default();
     debug_info.push_str(&format!("Current PATH: {}\n", current_path));
     
-    // Extended PATH to include common Homebrew locations
-    let extended_path = format!("{}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin", current_path);
+    // Extended PATH to include platform-specific common locations
+    let extended_path = get_extended_path();
     debug_info.push_str(&format!("Extended PATH: {}\n", extended_path));
     
     // First, try to find brew using which command with extended PATH
@@ -178,16 +206,49 @@ async fn install_ollama_macos() -> Result<String, String> {
 
 #[tauri::command]
 async fn install_ollama_windows() -> Result<String, String> {
-    // On Windows, we'll direct the user to download manually since 
-    // automatic installation requires more complex handling
-    Err("Please download the Ollama installer from ollama.ai/download and run it manually.".to_string())
+    // On Windows, redirect user to the official download page
+    let download_url = "https://ollama.com/download/windows";
+    
+    // Open the download page in the default browser
+    match std::process::Command::new("cmd")
+        .args(["/C", "start", download_url])
+        .output()
+    {
+        Ok(_) => Ok("Opening Ollama download page in your browser. Please download and install Ollama, then restart this app.".to_string()),
+        Err(e) => Err(format!("Failed to open download page. Please visit {} manually to download Ollama. Error: {}", download_url, e))
+    }
+}
+
+#[tauri::command]
+async fn install_ollama_linux() -> Result<String, String> {
+    // On Linux, use the official install script via curl
+    let output = Command::new("sh")
+        .args(["-c", "curl -fsSL https://ollama.com/install.sh | sh"])
+        .output();
+
+    match output {
+        Ok(output) => {
+            if output.status.success() {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                Ok(format!("Ollama installed successfully!\n\nOutput:\n{}", stdout.trim()))
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                Err(format!("Failed to install Ollama. Error:\n{}", stderr))
+            }
+        }
+        Err(e) => {
+            Err(format!(
+                "Failed to run installation script. Error: {}\n\nPlease try running this command manually in your terminal:\ncurl -fsSL https://ollama.com/install.sh | sh",
+                e
+            ))
+        }
+    }
 }
 
 #[tauri::command]
 async fn download_ollama_model(model_name: String) -> Result<String, String> {
-    // Extended PATH to include common Homebrew locations
-    let extended_path = format!("{}:/opt/homebrew/bin:/usr/local/bin", 
-        std::env::var("PATH").unwrap_or_default());
+    // Extended PATH to include platform-specific common locations
+    let extended_path = get_extended_path();
     
     let output = Command::new("ollama")
         .args(["pull", &model_name])
@@ -210,9 +271,8 @@ async fn download_ollama_model(model_name: String) -> Result<String, String> {
 
 #[tauri::command]
 async fn list_installed_models() -> Result<Vec<String>, String> {
-    // Extended PATH to include common Homebrew locations
-    let extended_path = format!("{}:/opt/homebrew/bin:/usr/local/bin", 
-        std::env::var("PATH").unwrap_or_default());
+    // Extended PATH to include platform-specific common locations
+    let extended_path = get_extended_path();
     
     let output = Command::new("ollama")
         .args(["list"])
@@ -293,11 +353,10 @@ async fn start_ollama_service() -> Result<String, String> {
             }
         }
     } else {
-        // macOS: Try multiple methods with proper PATH handling
+        // macOS/Linux: Try multiple methods with proper PATH handling
         
-        // Extended PATH to include common Homebrew locations
-        let extended_path = format!("{}:/opt/homebrew/bin:/usr/local/bin", 
-            std::env::var("PATH").unwrap_or_default());
+        // Extended PATH to include platform-specific common locations
+        let extended_path = get_extended_path();
         
         // Method 1: Use nohup for proper daemonization
         let nohup_result = Command::new("nohup")
@@ -420,9 +479,8 @@ async fn unload_ollama_model() -> Result<String, String> {
 
 #[tauri::command]
 async fn uninstall_ollama_model(model_name: String) -> Result<String, String> {
-    // Extended PATH to include common Homebrew locations
-    let extended_path = format!("{}:/opt/homebrew/bin:/usr/local/bin", 
-        std::env::var("PATH").unwrap_or_default());
+    // Extended PATH to include platform-specific common locations
+    let extended_path = get_extended_path();
     
     let output = Command::new("ollama")
         .args(["rm", &model_name])
@@ -572,6 +630,7 @@ pub fn run() {
         check_ollama_service_status,
         install_ollama_macos,
         install_ollama_windows,
+        install_ollama_linux,
         download_ollama_model,
         list_installed_models,
         start_ollama_service,
