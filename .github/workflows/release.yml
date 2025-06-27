@@ -74,13 +74,62 @@ jobs:
         run: cd src-tauri && cargo clippy -- -D warnings
 
       - name: Build the app
-        uses: tauri-apps/tauri-action@v0
+        run: npm run tauri:build ${{ matrix.args }}
+
+      - name: Upload artifacts (ubuntu only)
+        if: matrix.platform == 'ubuntu-22.04'
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-artifacts
+          path: src-tauri/target/release/bundle/
+
+      - name: Upload artifacts (windows only)
+        if: matrix.platform == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-artifacts
+          path: src-tauri/target/release/bundle/
+
+      - name: Upload artifacts (macos aarch64)
+        if: matrix.platform == 'macos-latest' && matrix.args == '--target aarch64-apple-darwin'
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-aarch64-artifacts
+          path: src-tauri/target/aarch64-apple-darwin/release/bundle/
+
+      - name: Upload artifacts (macos x86_64)
+        if: matrix.platform == 'macos-latest' && matrix.args == '--target x86_64-apple-darwin'
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-x86_64-artifacts
+          path: src-tauri/target/x86_64-apple-darwin/release/bundle/
+
+  create-release:
+    needs: test-and-build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'BeautifyOllama ${{ github.ref_name }}'
-          releaseBody: 'See the assets to download this version and install.'
-          releaseDraft: true
-          prerelease: false
-          args: ${{ matrix.args }}
+        run: |
+          # Create the release
+          gh release create ${{ github.ref_name }} \
+            --title "BeautifyOllama ${{ github.ref_name }}" \
+            --notes "Download the appropriate installer for your platform:
+          
+          - **Windows**: .msi or .exe file
+          - **macOS**: .dmg file (choose Intel or Apple Silicon)  
+          - **Linux**: .deb or .AppImage file"
+
+          # Upload all artifacts
+          find artifacts -type f \( -name "*.msi" -o -name "*.exe" -o -name "*.dmg" -o -name "*.deb" -o -name "*.AppImage" \) -exec gh release upload ${{ github.ref_name }} {} \;
