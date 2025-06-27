@@ -375,10 +375,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **[Framer Motion](https://www.framer.com/motion/)** - For beautiful animations
 - **All Contributors** - For making this project better
 
-## ⭐ Star History
+
+##⭐ Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=falkon2/BeautifyOllama&type=Date)](https://www.star-history.com/#falkon2/BeautifyOllama&Date)
-
 ---
 
 <div align="center">
