@@ -377,7 +377,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## ⭐ Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=falkon2/BeautifyOllama&type=Date)](https://star-history.com/#falkon2/BeautifyOllama&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=falkon2/BeautifyOllama&type=Date)](https://www.star-history.com/#falkon2/BeautifyOllama&Date)
 
 ---
 
