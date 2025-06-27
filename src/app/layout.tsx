@@ -17,10 +17,9 @@ export const metadata: Metadata = {
   title: "Ollama Chat",
   description: "A beautiful chat interface for Ollama",
   icons: {
-    icon: [
-      { url: '/favicon.svg', type: 'image/svg+xml' },
-      { url: '/ollama-chat-icon.svg', type: 'image/svg+xml' }
-    ],
+    icon: '/icon.png',
+    apple: '/icon.png',
+    shortcut: '/icon.png',
   },
 };
 

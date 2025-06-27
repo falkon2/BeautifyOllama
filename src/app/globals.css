@@ -118,6 +118,44 @@
   }
   body {
     @apply bg-background text-foreground;
+    background-image: url('/whitebackground.png');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    background-repeat: no-repeat;
+    min-height: 100vh;
+  }
+  
+  /* Dark mode background */
+  html.dark body {
+    background-image: url('/blackbackground.png');
+  }
+}
+
+/* Make components transparent to show background */
+@layer components {
+  .bg-background {
+    background: rgba(255, 255, 255, 0.9) !important;
+  }
+  
+  .dark .bg-background {
+    background: rgba(10, 10, 10, 0.9) !important;
+  }
+  
+  .bg-card {
+    background: rgba(255, 255, 255, 0.85) !important;
+  }
+  
+  .dark .bg-card {
+    background: rgba(10, 10, 10, 0.85) !important;
+  }
+  
+  .bg-card\/80 {
+    background: rgba(255, 255, 255, 0.8) !important;
+  }
+  
+  .dark .bg-card\/80 {
+    background: rgba(10, 10, 10, 0.8) !important;
   }
 }
 
@@ -137,5 +175,12 @@
 @layer utilities {
   .animate-shine {
     animation: shine var(--duration) linear infinite;
+  }
+  
+  /* Debug styles for buttons */
+  .debug-button {
+    border: 2px solid red !important;
+    z-index: 9999 !important;
+    position: relative !important;
   }
 }

@@ -1,3 +1,5 @@
+import { invoke } from '@tauri-apps/api/core';
+
 // Minimal Ollama wrapper for Next.js (calls local Ollama API)
 export async function askOllama(
   prompt: string, 
@@ -63,5 +65,111 @@ export async function listOllamaModels(): Promise<string[]> {
     return data.models?.map((m: { name: string }) => m.name) || [];
   } catch (e: any) {
     return [];
+  }
+}
+
+export interface OllamaStatus {
+  isInstalled: boolean;
+  isRunning: boolean;
+  version?: string;
+}
+
+export interface DownloadProgress {
+  downloaded: number;
+  total: number;
+  percentage: number;
+}
+
+export async function checkOllamaStatus(): Promise<OllamaStatus> {
+  try {
+    // Try to connect to Ollama API using standard fetch
+    const res = await fetch("http://localhost:11434/api/tags", {
+      method: "GET",
+    });
+    
+    if (res.ok) {
+      return { isInstalled: true, isRunning: true };
+    }
+  } catch (e) {
+    // Ollama is not running, check if it's installed
+    try {
+      // Try to get Ollama version using invoke (requires shell permission)
+      const version = await invoke('check_ollama_installed');
+      return { isInstalled: true, isRunning: false, version: version as string };
+    } catch (e) {
+      return { isInstalled: false, isRunning: false };
+    }
+  }
+  
+  return { isInstalled: false, isRunning: false };
+}
+
+export async function getPlatform(): Promise<string> {
+  try {
+    return await invoke('get_platform');
+  } catch (e) {
+    // Fallback to browser detection
+    const userAgent = navigator.userAgent.toLowerCase();
+    if (userAgent.includes('mac')) return 'macos';
+    if (userAgent.includes('win')) return 'windows';
+    return 'unknown';
+  }
+}
+
+export async function getOllamaDownloadUrl(): Promise<string> {
+  const platform = await getPlatform();
+  
+  switch (platform) {
+    case 'macos':
+      return 'https://ollama.ai/download/Ollama-darwin.zip';
+    case 'windows':
+      return 'https://ollama.ai/download/OllamaSetup.exe';
+    default:
+      throw new Error(`Unsupported platform: ${platform}`);
+  }
+}
+
+export async function downloadOllama(
+  onProgress?: (progress: DownloadProgress) => void
+): Promise<string> {
+  try {
+    const downloadUrl = await getOllamaDownloadUrl();
+    
+    // For now, we'll redirect to the download page
+    // In the future, we can implement direct download with Tauri
+    window.open(downloadUrl, '_blank');
+    
+    return downloadUrl;
+  } catch (e: any) {
+    throw new Error(`Download failed: ${e.message}`);
+  }
+}
+
+export async function installOllama(filePath: string): Promise<boolean> {
+  try {
+    const platform = await getPlatform();
+    
+    if (platform === 'macos') {
+      // On macOS, we need to extract the zip and move it to Applications
+      await invoke('install_ollama_macos', { filePath });
+    } else if (platform === 'windows') {
+      // On Windows, run the installer
+      await invoke('install_ollama_windows', { filePath });
+    }
+    
+    return true;
+  } catch (e: any) {
+    console.error('Installation failed:', e);
+    return false;
+  }
+}
+
+export async function startOllama(): Promise<boolean> {
+  try {
+    await invoke('start_ollama');
+    return true;
+  } catch (e: any) {
+    console.error('Failed to start Ollama:', e);
+    return false;
   }
 }
