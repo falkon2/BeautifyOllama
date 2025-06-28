@@ -42,6 +42,8 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
       - name: Install Linux dependencies
         if: matrix.platform == 'ubuntu-latest'
@@ -58,7 +60,12 @@ jobs:
         run: npm install
 
       - name: Build the app
-        run: npm run tauri:build
+        run: |
+          if [ "${{ matrix.platform }}" = "macos-latest" ]; then
+            npm run tauri build -- --target universal-apple-darwin
+          else
+            npm run tauri build
+          fi
 
       - name: Upload artifacts (windows only)
         if: matrix.platform == 'windows-latest'

@@ -1,13 +1,78 @@
 import { invoke } from '@tauri-apps/api/core';
 
+// Streaming Ollama wrapper for real-time text generation
+export async function askOllamaStreaming(
+  prompt: string, 
+  model: string = "llama2",
+  thinking: boolean = false,
+  onChunk?: (chunk: string) => void,
+  onComplete?: () => void
+): Promise<string> {
+  try {
+    // Add /nothinking by default, only add thinking if toggled on
+    const finalPrompt = thinking ? prompt : `/nothinking ${prompt}`;
+    
+    const requestBody = { 
+      model, 
+      prompt: finalPrompt,
+      stream: true 
+    };
+
+    const res = await fetch("http://localhost:11434/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(requestBody),
+    });
+    
+    if (!res.ok) throw new Error("Ollama API error");
+    
+    if (res.body) {
+      const reader = res.body.getReader();
+      let result = '';
+      const decoder = new TextDecoder();
+      
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        
+        const chunk = decoder.decode(value, { stream: true });
+        for (const line of chunk.split(/\r?\n/)) {
+          if (line.trim()) {
+            try {
+              const json = JSON.parse(line);
+              if (json.response) {
+                result += json.response;
+                onChunk?.(json.response);
+              }
+            } catch (e) {
+              // Ignore lines that aren't valid JSON
+            }
+          }
+        }
+      }
+      
+      onComplete?.();
+      return result;
+    }
+    
+    throw new Error("No response body");
+  } catch (e: any) {
+    throw new Error(`Error: ${e.message}`);
+  }
+}
+
 // Minimal Ollama wrapper for Next.js (calls local Ollama API)
 export async function askOllama(
   prompt: string, 
   model: string = "llama2", 
-  images?: string[]
+  images?: string[],
+  thinking: boolean = false
 ): Promise<string> {
   try {
-    const requestBody: any = { model, prompt };
+    // Add /nothinking by default, only add thinking if toggled on
+    const finalPrompt = thinking ? prompt : `/nothinking ${prompt}`;
+    
+    const requestBody: any = { model, prompt: finalPrompt };
     if (images && images.length > 0) {
       requestBody.images = images;
     }
@@ -58,13 +123,41 @@ export async function askOllama(
 
 export async function listOllamaModels(): Promise<string[]> {
   try {
-    const res = await fetch("http://localhost:11434/api/tags");
+    // Primary method: Try the API directly
+    const res = await fetch("http://localhost:11434/api/tags", {
+      method: "GET",
+      signal: AbortSignal.timeout(5000), // 5 second timeout
+    });
+    
     if (!res.ok) throw new Error("Failed to fetch Ollama models");
     const data = await res.json();
     // The API returns { models: [{name: string, ...}, ...] }
-    return data.models?.map((m: { name: string }) => m.name) || [];
+    const models = data.models?.map((m: { name: string }) => m.name) || [];
+    
+    // If we got models from API, return them
+    if (models.length > 0) {
+      return models;
+    }
+    
+    // If no models from API, try the backend command as fallback
+    try {
+      const backendModels = await invoke('list_installed_models') as string[];
+      return backendModels || [];
+    } catch (backendError) {
+      console.warn('Backend model listing failed:', backendError);
+      return [];
+    }
   } catch (e: any) {
-    return [];
+    console.warn('API model listing failed:', e);
+    
+    // Fallback: Try the backend command
+    try {
+      const backendModels = await invoke('list_installed_models') as string[];
+      return backendModels || [];
+    } catch (backendError) {
+      console.error('Both API and backend model listing failed:', backendError);
+      return [];
+    }
   }
 }
 
@@ -177,5 +270,28 @@ export async function startOllama(): Promise<boolean> {
   } catch (e: any) {
     console.error('Failed to start Ollama:', e);
     return false;
+  }
+}
+
+export async function askOllamaVerbose(
+  prompt: string, 
+  model: string = "llama2",
+  thinking: boolean = false
+): Promise<string> {
+  try {
+    // Add /nothinking by default, only add thinking if toggled on
+    const finalPrompt = thinking ? prompt : `/nothinking ${prompt}`;
+    
+    return await invoke('ask_ollama_verbose', { model, prompt: finalPrompt }) as string;
+  } catch (e: any) {
+    throw new Error(`Verbose Ollama request failed: ${e.message || e}`);
+  }
+}
+
+export async function searchWeb(query: string, thinking: boolean = false): Promise<string> {
+  try {
+    return await invoke('search_web', { query, thinking }) as string;
+  } catch (e: any) {
+    throw new Error(`Web search failed: ${e.message || e}`);
   }
 }

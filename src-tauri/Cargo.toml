@@ -24,3 +24,5 @@ log = "0.4"
 tauri = { version = "2.6.1", features = ["tray-icon"] }
 tauri-plugin-log = "2"
 tauri-plugin-http = "2"
+urlencoding = "2.1"
+regex = "1.5"

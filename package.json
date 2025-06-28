@@ -14,7 +14,8 @@
     "desktop": "npm run tauri:dev",
     "build:desktop": "npm run tauri:build",
     "build:all": "tauri build",
-    "build:mac": "tauri build --bundles dmg",
+    "build:mac": "tauri build --target universal-apple-darwin --bundles dmg",
+    "build:mac-universal": "tauri build --target universal-apple-darwin",
     "build:windows": "tauri build --bundles msi,nsis"
   },
   "dependencies": {

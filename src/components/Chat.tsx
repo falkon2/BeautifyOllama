@@ -2,13 +2,15 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useTheme } from "next-themes";
-import { askOllama, listOllamaModels, checkOllamaStatus, type OllamaStatus } from "@/app/services/ollamaService";
+import { askOllama, listOllamaModels, checkOllamaStatus, askOllamaVerbose, askOllamaStreaming, searchWeb, type OllamaStatus } from "@/app/services/ollamaService";
 import { PlaceholdersAndVanishInput } from "@/components/ui/placeholders-and-vanish-input";
 import { TextGenerateEffect } from "@/components/ui/enhanced-text-generate-effect";
+import { StreamingTextEffect } from "@/components/ui/streaming-text-effect";
 import { MarkdownRenderer } from "@/components/MarkdownRenderer";
+import { ThinkingRenderer } from "@/components/ThinkingRenderer";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MessageSquare, Bot, User, Plus, MoreHorizontal, Menu, Sun, Moon, Trash2, X, Settings, Terminal, Eye, EyeOff } from "lucide-react";
+import { MessageSquare, Bot, User, Plus, MoreHorizontal, Menu, Sun, Moon, Trash2, X, Settings, Terminal, Eye, EyeOff, RefreshCw, BarChart3, Search } from "lucide-react";
 import { ShineBorder } from "@/components/magicui/shine-border";
 import { OllamaChatIcon } from "@/components/ui/ollama-chat-icon";
 import { OllamaSetupOverlay } from "@/components/OllamaSetupOverlay";
@@ -19,6 +21,10 @@ interface Message {
   role: "user" | "assistant";
   timestamp: Date;
   hasAnimated?: boolean;
+  verboseInfo?: string;
+  showVerbose?: boolean;
+  webSearchSources?: string[];
+  showSources?: boolean;
 }
 
 interface Conversation {
@@ -50,6 +56,7 @@ export default function Chat() {
   const [loading, setLoading] = useState(false);
   const [model, setModel] = useState("");
   const [models, setModels] = useState<string[]>([]);
+  const [refreshingModels, setRefreshingModels] = useState(false);
   const [input, setInput] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false); // Start with false to match SSR
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -61,7 +68,12 @@ export default function Chat() {
     isOpen: false,
     isClearing: false
   });
+  const [verboseMode, setVerboseMode] = useState(false);
+  const [thinkingMode, setThinkingMode] = useState(false);
+  const [webSearchMode, setWebSearchMode] = useState(false);
+  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
   const logsEndRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const placeholders = [
     "What can you help me with today?",
@@ -158,6 +170,28 @@ export default function Chat() {
     };
   }, [clearConfirmation.isOpen, clearConfirmation.isClearing]);
 
+  const refreshModels = useCallback(async () => {
+    if (!ollamaStatus.isRunning) return;
+    
+    setRefreshingModels(true);
+    try {
+      const availableModels = await listOllamaModels();
+      setModels(availableModels);
+      
+      // Set default model if none selected or current model not available
+      if (availableModels.length > 0) {
+        if (!model || !availableModels.includes(model)) {
+          setModel(availableModels[0]);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading models:', error);
+      // If API fails, still keep any existing models
+    } finally {
+      setRefreshingModels(false);
+    }
+  }, [ollamaStatus.isRunning, model]);
+
   useEffect(() => {
     // Check Ollama status first, then load models if available
     const checkStatus = async () => {
@@ -165,11 +199,8 @@ export default function Chat() {
         const status = await checkOllamaStatus();
         setOllamaStatus(status);
         if (status.isRunning) {
-          const availableModels = await listOllamaModels();
-          setModels(availableModels);
-          if (availableModels.length > 0) {
-            setModel(availableModels[0]);
-          }
+          // Use the new refreshModels function
+          await refreshModels();
         } else {
           // Show setup overlay if Ollama is not running
           setShowOllamaSetup(true);
@@ -181,27 +212,21 @@ export default function Chat() {
       }
     };
 
-    checkStatus();
-  }, []); // Empty dependency array to prevent infinite re-renders
+    if (mounted) {
+      checkStatus();
+    }
+  }, [mounted, refreshModels]); // Add mounted and refreshModels to dependencies
 
   const handleOllamaStatusChange = useCallback(async (status: OllamaStatus) => {
     setOllamaStatus(status);
-    if (status.isRunning && models.length === 0) {
-      // Only reload models if we don't have any and Ollama is running
-      try {
-        const availableModels = await listOllamaModels();
-        setModels(availableModels);
-        if (availableModels.length > 0 && !model) {
-          setModel(availableModels[0]);
-        }
-      } catch (error) {
-        console.error('Error loading models:', error);
-      }
-    } else if (!status.isRunning) {
+    if (status.isRunning) {
+      // Always try to reload models when Ollama is running
+      await refreshModels();
+    } else {
       setModels([]);
       setModel("");
     }
-  }, [models.length, model]);
+  }, [refreshModels]);
 
   const createNewConversation = () => {
     const newConversation: Conversation = {
@@ -374,34 +399,291 @@ export default function Chat() {
     }
     setLoading(true);
 
+    // Create the assistant message first with empty content for streaming
+    const assistantMessage: Message = {
+      id: (Date.now() + 1).toString(),
+      content: "",
+      role: "assistant",
+      timestamp: new Date(),
+      hasAnimated: false,
+      verboseInfo: undefined,
+      showVerbose: false,
+    };
+
+    // Add the empty assistant message to the conversation
+    setConversations(prev => 
+      prev.map(conv => 
+        conv.id === conversationId 
+          ? { 
+              ...conv, 
+              messages: [...conv.messages, assistantMessage],
+              updatedAt: new Date()
+            } 
+          : conv
+      )
+    );
+
+    // Set this message as streaming
+    setStreamingMessageId(assistantMessage.id);
+
     try {
-      const response = await askOllama(currentInput, model);
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: response,
-        role: "assistant",
-        timestamp: new Date(),
-        hasAnimated: false,
-      };
+      let fullResponse = "";
+      let verboseInfo: string | undefined;
+      let webSearchSources: string[] = [];
       
-      // Update conversation with assistant message
+      // If web search mode is enabled, perform web search first
+      let finalInput = currentInput;
+      if (webSearchMode) {
+        try {
+          const searchLogId = addCommandLog(`Web search: "${currentInput}"`);
+          const searchResults = await searchWeb(currentInput, thinkingMode);
+          
+          console.log('Web search results:', searchResults); // Debug logging
+          
+          // Extract sources from search results with multiple parsing methods
+          let sourceMatches: string[] = [];
+          
+          // Method 1: Look for "Sources:" section
+          const sourcesMatch = searchResults.match(/Sources:\s*((?:\d+\.\s*https?:\/\/[^\s\n]+\s*\n?)*)/i);
+          if (sourcesMatch && sourcesMatch[1]) {
+            const sourcesSection = sourcesMatch[1];
+            console.log('Found sources section:', sourcesSection); // Debug logging
+            const numberedSources = sourcesSection.match(/\d+\.\s*(https?:\/\/[^\s\n]+)/g);
+            if (numberedSources) {
+              sourceMatches = numberedSources.map(match => {
+                const urlMatch = match.match(/https?:\/\/[^\s\n]+/);
+                return urlMatch ? urlMatch[0] : '';
+              }).filter(Boolean);
+            }
+          }
+          
+          // Method 2: Fallback to general URL extraction
+          if (sourceMatches.length === 0) {
+            console.log('No sources found in structured format, trying general URL extraction'); // Debug
+            sourceMatches = searchResults.match(/https?:\/\/[^\s\n]+/g) || [];
+          }
+          
+          console.log('Extracted sources:', sourceMatches); // Debug logging
+          webSearchSources = [...new Set(sourceMatches)]; // Remove duplicates
+          updateCommandLog(searchLogId, 'success', `Found ${webSearchSources.length} sources`);
+          
+          // Add search context to the prompt
+          const enhancedPrompt = `${currentInput}\n\nWeb search context:\n${searchResults}`;
+          finalInput = enhancedPrompt;
+        } catch (error: any) {
+          const errorMsg = error.message || 'Web search failed';
+          addCommandLog(`Web search failed: ${errorMsg}`);
+          // Continue with original prompt even if search fails
+        }
+      }
+      
+      if (verboseMode) {
+        // For verbose mode, use the non-streaming version and only show stats
+        const response = await askOllamaVerbose(finalInput, model, thinkingMode);
+        // Parse verbose output - timing info is usually after "=== VERBOSE STATS ==="
+        const statsMarker = "=== VERBOSE STATS ===";
+        const statsIndex = response.indexOf(statsMarker);
+        
+        if (statsIndex !== -1) {
+          const contentPart = response.substring(0, statsIndex).trim();
+          const statsPart = response.substring(statsIndex + statsMarker.length).trim();
+          
+          // Clean up the stats by removing ANSI escape codes and control characters
+          let cleanStats = statsPart
+            .replace(/\x1b\[[?]?[0-9;]*[a-zA-Z]/g, '') // Remove ANSI escape codes
+            .replace(/\[[?]?[0-9;]*[a-zA-Z]/g, '') // Remove additional escape sequences
+            .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
+            .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+            .trim();
+          
+          // Format the stats with proper line breaks
+          cleanStats = cleanStats
+            .replace(/total duration:/g, '\ntotal duration:')
+            .replace(/load duration:/g, '\nload duration:')
+            .replace(/prompt eval count:/g, '\nprompt eval count:')
+            .replace(/prompt eval duration:/g, '\nprompt eval duration:')
+            .replace(/prompt eval rate:/g, '\nprompt eval rate:')
+            .replace(/eval count:/g, '\neval count:')
+            .replace(/eval duration:/g, '\neval duration:')
+            .replace(/eval rate:/g, '\neval rate:')
+            .replace(/^\n/, '') // Remove leading newline
+            .trim();
+          
+          verboseInfo = cleanStats;
+          fullResponse = contentPart; // Show the actual response content
+        } else {
+          // If no stats marker found, try to extract stats from the raw response
+          const lines = response.split('\n');
+          const statsLines = lines.filter(line => 
+            line.includes('total duration:') || 
+            line.includes('load duration:') || 
+            line.includes('prompt eval count:') || 
+            line.includes('prompt eval duration:') || 
+            line.includes('prompt eval rate:') || 
+            line.includes('eval count:') || 
+            line.includes('eval duration:') || 
+            line.includes('eval rate:')
+          );
+          
+          if (statsLines.length > 0) {
+            // Clean the stats lines
+            const cleanedStatsLines = statsLines.map(line => 
+              line
+                .replace(/\x1b\[[?]?[0-9;]*[a-zA-Z]/g, '') // Remove ANSI escape codes
+                .replace(/\[[?]?[0-9;]*[a-zA-Z]/g, '') // Remove additional escape sequences
+                .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
+                .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+                .trim()
+            ).filter(line => line.length > 0);
+            
+            verboseInfo = cleanedStatsLines.join('\n');
+          } else {
+            // Try to extract stats from a single line format
+            let rawStats = response
+              .replace(/\x1b\[[?]?[0-9;]*[a-zA-Z]/g, '') // Remove ANSI escape codes
+              .replace(/\[[?]?[0-9;]*[a-zA-Z]/g, '') // Remove additional escape sequences
+              .replace(/[\u0000-\u001F\u007F-\u009F]/g, ''); // Remove control characters
+            
+            // Format single line stats with proper line breaks
+            if (rawStats.includes('total duration:')) {
+              let formattedStats = rawStats
+                .replace(/total duration:/g, '\ntotal duration:')
+                .replace(/load duration:/g, '\nload duration:')
+                .replace(/prompt eval count:/g, '\nprompt eval count:')
+                .replace(/prompt eval duration:/g, '\nprompt eval duration:')
+                .replace(/prompt eval rate:/g, '\nprompt eval rate:')
+                .replace(/eval count:/g, '\neval count:')
+                .replace(/eval duration:/g, '\neval duration:')
+                .replace(/eval rate:/g, '\neval rate:')
+                .replace(/^\n/, '') // Remove leading newline
+                .trim();
+              
+              verboseInfo = formattedStats;
+            }
+          }
+          
+          // Get the actual response content (everything that's not stats)
+          const contentLines = lines.filter(line => 
+            !line.includes('total duration:') && 
+            !line.includes('load duration:') && 
+            !line.includes('prompt eval') && 
+            !line.includes('eval count:') && 
+            !line.includes('eval duration:') && 
+            !line.includes('eval rate:') &&
+            line.trim().length > 0
+          );
+          
+          fullResponse = contentLines.join('\n').trim() || response;
+        }
+
+        // Update the message with the complete response
+        setConversations(prev => 
+          prev.map(conv => 
+            conv.id === conversationId 
+              ? { 
+                  ...conv, 
+                  messages: conv.messages.map(msg => 
+                    msg.id === assistantMessage.id 
+                      ? { 
+                          ...msg, 
+                          content: fullResponse, 
+                          verboseInfo, 
+                          hasAnimated: true, 
+                          showVerbose: !!verboseInfo,
+                          webSearchSources: webSearchSources.length > 0 ? webSearchSources : undefined,
+                          showSources: webSearchSources.length > 0
+                        }
+                      : msg
+                  ),
+                  updatedAt: new Date()
+                } 
+              : conv
+          )
+        );
+      } else {
+        // Use streaming for regular mode
+        await askOllamaStreaming(
+          finalInput, 
+          model,
+          thinkingMode,
+          (chunk: string) => {
+            // Update the message content in real-time
+            fullResponse += chunk;
+            setConversations(prev => 
+              prev.map(conv => 
+                conv.id === conversationId 
+                  ? { 
+                      ...conv, 
+                      messages: conv.messages.map(msg => 
+                        msg.id === assistantMessage.id 
+                          ? { ...msg, content: fullResponse }
+                          : msg
+                      ),
+                      updatedAt: new Date()
+                    } 
+                  : conv
+              )
+            );
+          },
+          () => {
+            // Mark as complete when streaming finishes
+            setStreamingMessageId(null);
+            setConversations(prev => 
+              prev.map(conv => 
+                conv.id === conversationId 
+                  ? { 
+                      ...conv, 
+                      messages: conv.messages.map(msg => 
+                        msg.id === assistantMessage.id 
+                          ? { 
+                              ...msg, 
+                              hasAnimated: true,
+                              webSearchSources: webSearchSources.length > 0 ? webSearchSources : undefined,
+                              showSources: webSearchSources.length > 0
+                            }
+                          : msg
+                      ),
+                      updatedAt: new Date()
+                    } 
+                  : conv
+              )
+            );
+          }
+        );
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      // Update the message with error
       setConversations(prev => 
         prev.map(conv => 
           conv.id === conversationId 
             ? { 
                 ...conv, 
-                messages: [...conv.messages, assistantMessage],
+                messages: conv.messages.map(msg => 
+                  msg.id === assistantMessage.id 
+                    ? { ...msg, content: `Error: ${error}`, hasAnimated: true }
+                    : msg
+                ),
                 updatedAt: new Date()
               } 
             : conv
         )
       );
-    } catch (error) {
-      console.error("Error:", error);
     } finally {
       setLoading(false);
+      setStreamingMessageId(null);
     }
   };
+
+  // Auto-scroll to bottom when new messages are added
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  // Auto-scroll when messages change
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value);
@@ -414,16 +696,33 @@ export default function Chat() {
       setOllamaStatus(status);
       
       if (status.isRunning) {
-        const availableModels = await listOllamaModels();
-        setModels(availableModels);
-        if (availableModels.length > 0) {
-          setModel(availableModels[0]);
-        }
+        await refreshModels();
       }
     } catch (error) {
       console.error('Error updating status after setup:', error);
     }
-  }, []);
+  }, [refreshModels]);
+
+  const handleStatsRequest = async () => {
+    // Toggle verbose mode for future messages
+    setVerboseMode(!verboseMode);
+    const logId = addCommandLog(`Verbose mode ${!verboseMode ? 'enabled' : 'disabled'}`);
+    updateCommandLog(logId, 'success', `Verbose mode is now ${!verboseMode ? 'enabled' : 'disabled'}. Future messages will ${!verboseMode ? 'include' : 'exclude'} timing statistics.`);
+  };
+
+  const handleThinkingToggle = async () => {
+    // Toggle thinking mode for future messages
+    setThinkingMode(!thinkingMode);
+    const logId = addCommandLog(`Thinking mode ${!thinkingMode ? 'enabled' : 'disabled'}`);
+    updateCommandLog(logId, 'success', `Thinking mode is now ${!thinkingMode ? 'enabled' : 'disabled'}. Future messages will ${!thinkingMode ? 'show' : 'hide'} reasoning process.`);
+  };
+
+  const handleWebSearchToggle = async () => {
+    // Toggle web search mode for future messages
+    setWebSearchMode(!webSearchMode);
+    const logId = addCommandLog(`Web search mode ${!webSearchMode ? 'enabled' : 'disabled'}`);
+    updateCommandLog(logId, 'success', `Web search mode is now ${!webSearchMode ? 'enabled' : 'disabled'}. Future messages will ${!webSearchMode ? 'include' : 'exclude'} web search results.`);
+  };
 
   // Prevent hydration mismatches by not rendering until mounted
   if (!mounted) {
@@ -606,18 +905,29 @@ export default function Chat() {
                   <Moon className="w-4 h-4" />
                 )}
               </Button>
-              <Select value={model} onValueChange={setModel} disabled={!ollamaStatus.isRunning || models.length === 0}>
-                <SelectTrigger className="w-32 md:w-48">
-                  <SelectValue placeholder={models.length === 0 ? "No models" : "Select model"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {models.map((m) => (
-                    <SelectItem key={m} value={m}>
-                      <span className="truncate">{m}</span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center space-x-2">
+                <Select value={model} onValueChange={setModel} disabled={!ollamaStatus.isRunning || models.length === 0}>
+                  <SelectTrigger className="w-32 md:w-48">
+                    <SelectValue placeholder={models.length === 0 ? "No models" : "Select model"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {models.map((m) => (
+                      <SelectItem key={m} value={m}>
+                        <span className="truncate">{m}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={refreshModels}
+                  disabled={!ollamaStatus.isRunning || refreshingModels}
+                  title="Refresh model list"
+                >
+                  <RefreshCw className={`w-4 h-4 ${refreshingModels ? 'animate-spin' : ''}`} />
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -655,12 +965,26 @@ export default function Chat() {
                       Ollama is running, but no AI models are currently loaded. Download and install a model to start chatting.
                     </p>
                   </div>
-                  <Button
-                    onClick={() => setShowOllamaSetup(true)}
-                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-                  >
-                    Manage Models
-                  </Button>
+                  <div className="flex space-x-2">
+                    <Button
+                      onClick={() => setShowOllamaSetup(true)}
+                      className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                    >
+                      Manage Models
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={refreshModels}
+                      disabled={refreshingModels}
+                    >
+                      {refreshingModels ? (
+                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                      )}
+                      Refresh
+                    </Button>
+                  </div>
                 </div>
               ) : (
                 <>
@@ -707,28 +1031,40 @@ export default function Chat() {
                         />
                         <div className="prose prose-sm max-w-none relative z-10">
                           {message.role === "assistant" ? (
-                            <TextGenerateEffect 
-                              words={message.content} 
-                              hasAnimated={message.hasAnimated}
-                              onAnimationComplete={() => {
-                                setConversations(prev => 
-                                  prev.map(conv => 
-                                    conv.id === currentConversationId 
-                                      ? { 
-                                          ...conv, 
-                                          messages: conv.messages.map(msg => 
-                                            msg.id === message.id 
-                                              ? { ...msg, hasAnimated: true }
-                                              : msg
-                                          )
-                                        } 
-                                      : conv
-                                  )
-                                );
-                              }}
-                            />
+                            streamingMessageId === message.id ? (
+                              <StreamingTextEffect 
+                                text={message.content} 
+                                isComplete={false}
+                              />
+                            ) : message.hasAnimated ? (
+                              <ThinkingRenderer 
+                                content={message.content}
+                                className="leading-relaxed [&_code]:bg-muted/80 [&_code]:text-foreground"
+                              />
+                            ) : (
+                              <TextGenerateEffect 
+                                words={message.content} 
+                                hasAnimated={message.hasAnimated}
+                                onAnimationComplete={() => {
+                                  setConversations(prev => 
+                                    prev.map(conv => 
+                                      conv.id === currentConversationId 
+                                        ? { 
+                                            ...conv, 
+                                            messages: conv.messages.map(msg => 
+                                              msg.id === message.id 
+                                                ? { ...msg, hasAnimated: true }
+                                                : msg
+                                            )
+                                          } 
+                                        : conv
+                                    )
+                                  );
+                                }}
+                              />
+                            )
                           ) : (
-                            <MarkdownRenderer 
+                            <ThinkingRenderer 
                               content={message.content}
                               className={`leading-relaxed ${
                                 message.role === "user" 
@@ -739,6 +1075,96 @@ export default function Chat() {
                           )}
                         </div>
                       </div>
+                      
+                      {/* Verbose Stats - only for assistant messages */}
+                      {message.role === "assistant" && message.verboseInfo && (
+                        <div className="mt-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs h-6 px-2"
+                            onClick={() => {
+                              setConversations(prev => 
+                                prev.map(conv => 
+                                  conv.id === currentConversationId 
+                                    ? { 
+                                        ...conv, 
+                                        messages: conv.messages.map(msg => 
+                                          msg.id === message.id 
+                                            ? { ...msg, showVerbose: !msg.showVerbose }
+                                            : msg
+                                        )
+                                      } 
+                                    : conv
+                                )
+                              );
+                            }}
+                          >
+                            <BarChart3 className="w-3 h-3 mr-1" />
+                            {message.showVerbose ? "Hide" : "Show"} Stats
+                          </Button>
+                          
+                          {message.showVerbose && (
+                            <div className="mt-2 p-2 bg-muted/30 rounded-lg border border-border/50">
+                              <div className="text-xs font-mono text-muted-foreground whitespace-pre-wrap">
+                                {message.verboseInfo}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Web Search Sources - only for assistant messages */}
+                      {message.role === "assistant" && message.webSearchSources && message.webSearchSources.length > 0 && (
+                        <div className="mt-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs h-6 px-2"
+                            onClick={() => {
+                              setConversations(prev => 
+                                prev.map(conv => 
+                                  conv.id === currentConversationId 
+                                    ? { 
+                                        ...conv, 
+                                        messages: conv.messages.map(msg => 
+                                          msg.id === message.id 
+                                            ? { ...msg, showSources: !msg.showSources }
+                                            : msg
+                                        )
+                                      } 
+                                    : conv
+                                )
+                              );
+                            }}
+                          >
+                            <Search className="w-3 h-3 mr-1" />
+                            {message.showSources ? "Hide" : "Show"} Sources ({message.webSearchSources.length})
+                          </Button>
+                          
+                          {message.showSources && (
+                            <div className="mt-2 p-2 bg-muted/30 rounded-lg border border-border/50">
+                              <div className="text-xs text-muted-foreground mb-2 font-medium">
+                                Web Search Sources:
+                              </div>
+                              <div className="space-y-1">
+                                {message.webSearchSources.map((source, index) => (
+                                  <div key={index} className="text-xs">
+                                    <a 
+                                      href={source} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 underline break-all"
+                                    >
+                                      {index + 1}. {source}
+                                    </a>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                   
@@ -767,6 +1193,7 @@ export default function Chat() {
                   </div>
                 </div>
               )}
+              <div ref={messagesEndRef} />
             </div>
           )}
         </div>
@@ -785,6 +1212,43 @@ export default function Chat() {
               onSubmit={handleSubmit}
               disabled={!ollamaStatus.isRunning || models.length === 0}
             />
+            
+            {/* Control buttons below input */}
+            <div className="flex items-center justify-center space-x-2 mt-3">
+              <Button
+                variant={verboseMode ? "default" : "ghost"}
+                size="sm"
+                onClick={handleStatsRequest}
+                disabled={!ollamaStatus.isRunning}
+                title={verboseMode ? "Disable Verbose Mode (Stats)" : "Enable Verbose Mode (Stats)"}
+                className="text-xs"
+              >
+                <BarChart3 className="w-3 h-3 mr-1" />
+                Stats
+              </Button>
+              <Button
+                variant={thinkingMode ? "default" : "ghost"}
+                size="sm"
+                onClick={handleThinkingToggle}
+                disabled={!ollamaStatus.isRunning}
+                title={thinkingMode ? "Disable Thinking Mode" : "Enable Thinking Mode"}
+                className="text-xs"
+              >
+                <Eye className={`w-3 h-3 mr-1 ${thinkingMode ? '' : 'opacity-50'}`} />
+                Thinking
+              </Button>
+              <Button
+                variant={webSearchMode ? "default" : "ghost"}
+                size="sm"
+                onClick={handleWebSearchToggle}
+                disabled={!ollamaStatus.isRunning}
+                title={webSearchMode ? "Disable Web Search Mode" : "Enable Web Search Mode"}
+                className="text-xs"
+              >
+                <Search className={`w-3 h-3 mr-1 ${webSearchMode ? '' : 'opacity-50'}`} />
+                Search
+              </Button>
+            </div>
           </div>
         </div>
       </div>

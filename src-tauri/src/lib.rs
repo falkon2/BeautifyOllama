@@ -2,6 +2,8 @@ use std::process::Command;
 use std::path::Path;
 use std::net::TcpStream;
 use std::time::Duration;
+use serde_json::json;
+use regex::Regex;
 
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
@@ -1044,6 +1046,387 @@ async fn diagnose_windows_ollama_issues() -> Result<String, String> {
     Ok(diagnostic_info)
 }
 
+#[tauri::command]
+async fn ask_ollama_verbose(model: String, prompt: String) -> Result<String, String> {
+    // Extended PATH to include platform-specific common locations
+    let extended_path = get_extended_path();
+    
+    let ollama_cmd = if cfg!(target_os = "windows") { "ollama.exe" } else { "ollama" };
+    
+    let output = Command::new(ollama_cmd)
+        .args(["run", &model, "--verbose", &prompt])
+        .env("PATH", &extended_path)
+        .output();
+
+    match output {
+        Ok(output) => {
+            if output.status.success() {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                
+                // Combine both stdout and stderr
+                let combined_output = format!("{}{}", stdout, stderr);
+                
+                // Split into content and stats
+                let lines: Vec<&str> = combined_output.lines().collect();
+                let mut content_lines = Vec::new();
+                let mut stats_lines = Vec::new();
+                let mut in_stats = false;
+                
+                for line in lines {
+                    if line.contains("total duration:") || line.contains("load duration:") || 
+                       line.contains("prompt eval") || line.contains("eval count:") || 
+                       line.contains("eval duration:") || line.contains("eval rate:") {
+                        in_stats = true;
+                        stats_lines.push(line);
+                    } else if in_stats && (line.trim().is_empty() || 
+                            line.contains("also web search") || line.contains("Suggested search:")) {
+                        // End of stats, this line is part of content
+                        content_lines.push(line);
+                        in_stats = false;
+                    } else if !in_stats {
+                        content_lines.push(line);
+                    } else {
+                        stats_lines.push(line);
+                    }
+                }
+                
+                let content = content_lines.join("\n").trim().to_string();
+                let stats = if !stats_lines.is_empty() {
+                    format!("\n\n=== VERBOSE STATS ===\n{}", stats_lines.join("\n"))
+                } else {
+                    String::new()
+                };
+                
+                Ok(format!("{}{}", content, stats))
+            } else {
+                let error = String::from_utf8_lossy(&output.stderr);
+                
+                // Try alternative without --verbose flag as fallback
+                let fallback_output = Command::new(ollama_cmd)
+                    .args(["run", &model, &prompt])
+                    .env("PATH", &extended_path)
+                    .output();
+                
+                match fallback_output {
+                    Ok(fallback_output) if fallback_output.status.success() => {
+                        let result = String::from_utf8_lossy(&fallback_output.stdout);
+                        Ok(format!("{}\n\n[Verbose mode not available: {}]", result, error))
+                    }
+                    _ => Err(format!("Failed to run ollama with verbose: {}", error))
+                }
+            }
+        }
+        Err(e) => {
+            // Try absolute paths on Windows
+            if cfg!(target_os = "windows") {
+                let userprofile_path = format!("{}\\AppData\\Local\\Programs\\Ollama\\ollama.exe", 
+                    std::env::var("USERPROFILE").unwrap_or_default());
+                let ollama_paths = vec![
+                    "C:\\Program Files\\Ollama\\ollama.exe",
+                    "C:\\Program Files (x86)\\Ollama\\ollama.exe",
+                    &userprofile_path,
+                ];
+                
+                for ollama_path in ollama_paths {
+                    if Path::new(ollama_path).exists() {
+                        let output = Command::new(ollama_path)
+                            .args(["run", &model, "--verbose", &prompt])
+                            .output();
+                        
+                        if let Ok(output) = output {
+                            if output.status.success() {
+                                let stdout = String::from_utf8_lossy(&output.stdout);
+                                let stderr = String::from_utf8_lossy(&output.stderr);
+                                
+                                // Combine both stdout and stderr
+                                let combined_output = format!("{}{}", stdout, stderr);
+                                
+                                // Split into content and stats
+                                let lines: Vec<&str> = combined_output.lines().collect();
+                                let mut content_lines = Vec::new();
+                                let mut stats_lines = Vec::new();
+                                let mut in_stats = false;
+                                
+                                for line in lines {
+                                    if line.contains("total duration:") || line.contains("load duration:") || 
+                                       line.contains("prompt eval") || line.contains("eval count:") || 
+                                       line.contains("eval duration:") || line.contains("eval rate:") {
+                                        in_stats = true;
+                                        stats_lines.push(line);
+                                    } else if in_stats && (line.trim().is_empty() || 
+                                            line.contains("also web search") || line.contains("Suggested search:")) {
+                                        // End of stats, this line is part of content
+                                        content_lines.push(line);
+                                        in_stats = false;
+                                    } else if !in_stats {
+                                        content_lines.push(line);
+                                    } else {
+                                        stats_lines.push(line);
+                                    }
+                                }
+                                
+                                let content = content_lines.join("\n").trim().to_string();
+                                let stats = if !stats_lines.is_empty() {
+                                    format!("\n\n=== VERBOSE STATS ===\n{}", stats_lines.join("\n"))
+                                } else {
+                                    String::new()
+                                };
+                                
+                                return Ok(format!("{}{}", content, stats));
+                            }
+                        }
+                    }
+                }
+            }
+            
+            Err(format!("Failed to run ollama verbose command: {}", e))
+        }
+    }
+}
+
+#[tauri::command]
+async fn search_web(query: String, thinking: Option<bool>) -> Result<String, String> {
+    let thinking_mode = thinking.unwrap_or(false);
+    println!("🔍 Web search for: {} (thinking: {})", query, thinking_mode);
+    
+    // Call the main Python search script with JSON output using the exact SearxNG instances
+    let python_script_path = get_python_script_path();
+    
+    let mut cmd = Command::new("python3");
+    cmd.arg(&python_script_path)
+        .arg("--query")
+        .arg(&query)
+        .arg("--json");  // Use JSON output mode
+    
+    if thinking_mode {
+        cmd.arg("--thinking");
+    }
+    
+    println!("🐍 Calling Python search script with exact SearxNG instances...");
+    
+    let output = cmd.output();
+    
+    match output {
+        Ok(output) => {
+            if output.status.success() {
+                let response = String::from_utf8_lossy(&output.stdout);
+                
+                // Parse JSON response from Python script
+                if let Ok(json) = serde_json::from_str::<serde_json::Value>(&response) {
+                    if json.get("success").and_then(|v| v.as_bool()).unwrap_or(false) {
+                        return format_search_results_from_python(&json, &query);
+                    } else {
+                        let error = json.get("error")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("Unknown error from Python script");
+                        return Err(format!("Python search failed: {}", error));
+                    }
+                } else {
+                    println!("⚠️ Could not parse Python response as JSON: {}", response);
+                    return Err("Failed to parse Python search response".to_string());
+                }
+            } else {
+                let error = String::from_utf8_lossy(&output.stderr);
+                println!("❌ Python script failed: {}", error);
+                return Err(format!("Python script execution failed: {}", error));
+            }
+        }
+        Err(e) => {
+            println!("❌ Failed to execute Python script: {}", e);
+            return Err(format!("Failed to execute Python search script: {}", e));
+        }
+    }
+}
+
+// Legacy helper functions (replaced by Python search API integration)
+
+// DEPRECATED: These functions are now replaced by the Python search API
+// Keeping them commented for reference but they are no longer used
+
+async fn generate_search_queries_with_ollama(query: &str, thinking: bool) -> Result<Vec<String>, String> {
+    println!("🧠 Generating search queries with Ollama...");
+    
+    // Add /nothinking by default unless thinking mode is enabled
+    let prompt = if thinking {
+        format!(
+            "Based on the following user query, generate three Google search queries \
+            that would help understand the query better. Provide each query enclosed in double quotes.\n\n\
+            User query: {}", 
+            query
+        )
+    } else {
+        format!(
+            "/nothinking Based on the following user query, generate three Google search queries \
+            that would help understand the query better. Provide each query enclosed in double quotes.\n\n\
+            User query: {}", 
+            query
+        )
+    };
+    
+    let request_body = json!({
+        "model": "llama2",
+        "messages": [{"role": "user", "content": prompt}],
+        "stream": false
+    });
+    
+    let output = Command::new("curl")
+        .args([
+            "-s",
+            "--connect-timeout", "10",
+            "--max-time", "30",
+            "-H", "Content-Type: application/json",
+            "-X", "POST",
+            "-d", &request_body.to_string(),
+            "http://localhost:11434/api/chat"
+        ])
+        .output();
+
+    match output {
+        Ok(output) => {
+            if output.status.success() {
+                let response = String::from_utf8_lossy(&output.stdout);
+                
+                if let Ok(json) = serde_json::from_str::<serde_json::Value>(&response) {
+                    if let Some(content) = json.get("message")
+                        .and_then(|m| m.get("content"))
+                        .and_then(|c| c.as_str()) {
+                        
+                        // Extract queries enclosed in quotes using regex
+                        let re = regex::Regex::new(r#""([^"]+)""#).unwrap();
+                        let queries: Vec<String> = re.captures_iter(content)
+                            .map(|cap| cap[1].to_string())
+                            .collect();
+                        
+                        if queries.len() >= 3 {
+                            println!("✅ Generated {} search queries", queries.len());
+                            return Ok(queries.into_iter().take(3).collect());
+                        }
+                    }
+                }
+            }
+        }
+        Err(e) => {
+            println!("❌ Failed to generate search queries: {}", e);
+        }
+    }
+    
+    // Fallback to just using the original query
+    Ok(vec![query.to_string()])
+}
+
+async fn get_search_context(search_query: &str) -> (Vec<String>, String) {
+    // Get the cloud service URL from environment or use default
+    let cloud_service_url = std::env::var("CLOUD_SERVICE_URL")
+        .unwrap_or_else(|_| {
+            // Try to read from the TypeScript search service running on port 3000
+            "http://localhost:3000".to_string()
+        });
+    
+    let request_body = json!({
+        "query": search_query
+    });
+    
+    println!("🌐 Fetching search context from: {}", cloud_service_url);
+    
+    let output = Command::new("curl")
+        .args([
+            "-s",
+            "--connect-timeout", "10",
+            "--max-time", "20",
+            "-H", "Content-Type: application/json",
+            "-H", "User-Agent: BeautifyOllama/1.0",
+            "-X", "POST",
+            "-d", &request_body.to_string(),
+            &format!("{}/process", cloud_service_url)
+        ])
+        .output();
+
+    match output {
+        Ok(output) => {
+            if output.status.success() {
+                let response = String::from_utf8_lossy(&output.stdout);
+                
+                if let Ok(json) = serde_json::from_str::<serde_json::Value>(&response) {
+                    if json.get("success").and_then(|v| v.as_bool()).unwrap_or(false) {
+                        if let Some(data) = json.get("data").and_then(|v| v.as_array()) {
+                            let mut sources = Vec::new();
+                            let mut context_parts = Vec::new();
+                            
+                            for item in data {
+                                if let (Some(url), Some(content)) = (
+                                    item.get("url").and_then(|v| v.as_str()),
+                                    item.get("content").and_then(|v| v.as_str())
+                                ) {
+                                    sources.push(url.to_string());
+                                    context_parts.push(format!("{}\n{}", url, content));
+                                }
+                            }
+                            
+                            let context_str = context_parts.join("\n\n");
+                            return (sources, context_str);
+                        }
+                    }
+                }
+            }
+        }
+        Err(e) => {
+            println!("❌ Cloud service request failed: {}", e);
+        }
+    }
+    
+    // Return empty results if cloud service fails
+    (Vec::new(), String::new())
+}
+
+async fn summarize_with_ollama(context: &str, thinking: bool) -> Result<String, String> {
+    // Add /nothinking by default unless thinking mode is enabled
+    let prompt = if thinking {
+        format!("Summarize the following search results:\n\n{}", context)
+    } else {
+        format!("/nothinking Summarize the following search results:\n\n{}", context)
+    };
+    
+    let request_body = json!({
+        "model": "llama2",
+        "messages": [{"role": "user", "content": prompt}],
+        "stream": false
+    });
+    
+    let output = Command::new("curl")
+        .args([
+            "-s",
+            "--connect-timeout", "15",
+            "--max-time", "30",
+            "-H", "Content-Type: application/json",
+            "-X", "POST",
+            "-d", &request_body.to_string(),
+            "http://localhost:11434/api/chat"
+        ])
+        .output();
+
+    match output {
+        Ok(output) => {
+            if output.status.success() {
+                let response = String::from_utf8_lossy(&output.stdout);
+                
+                if let Ok(json) = serde_json::from_str::<serde_json::Value>(&response) {
+                    if let Some(content) = json.get("message")
+                        .and_then(|m| m.get("content"))
+                        .and_then(|c| c.as_str()) {
+                        return Ok(content.to_string());
+                    }
+                }
+            }
+        }
+        Err(e) => {
+            println!("❌ Failed to summarize with Ollama: {}", e);
+        }
+    }
+    
+    Err("Failed to summarize search results".to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
@@ -1066,7 +1449,9 @@ pub fn run() {
         uninstall_ollama_model,
         scan_for_models,
         diagnose_windows_ollama_issues,
-        fix_windows_ollama_service
+        fix_windows_ollama_service,
+        ask_ollama_verbose,
+        search_web
     ])
     .setup(|app| {
       if cfg!(debug_assertions) {
@@ -1081,3 +1466,75 @@ pub fn run() {
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }
+
+// Helper functions for Python search API integration
+
+fn get_python_script_path() -> String {
+    // Get the path to the main Python search script
+    let current_dir = std::env::current_dir().unwrap_or_default();
+    let script_path = current_dir.join("ollama-web-search").join("main.py");
+    
+    if script_path.exists() {
+        script_path.to_string_lossy().to_string()
+    } else {
+        // Fallback paths
+        let fallback_paths = vec![
+            "./ollama-web-search/main.py",
+            "../ollama-web-search/main.py",
+            "../../ollama-web-search/main.py",
+        ];
+        
+        for path in fallback_paths {
+            if std::path::Path::new(path).exists() {
+                return path.to_string();
+            }
+        }
+        
+        // Default path - will cause error if not found
+        "ollama-web-search/main.py".to_string()
+    }
+}
+
+fn format_search_results_from_python(json: &serde_json::Value, query: &str) -> Result<String, String> {
+    let mut final_context = format!("📌 **User Query:** {}\n\n", query);
+    
+    // Extract search queries
+    if let Some(search_queries) = json.get("search_queries").and_then(|v| v.as_array()) {
+        final_context.push_str("🔍 **Generated Search Queries:**\n");
+        for (i, sq) in search_queries.iter().enumerate() {
+            if let Some(query_str) = sq.as_str() {
+                final_context.push_str(&format!("{}. {}\n", i + 1, query_str));
+            }
+        }
+        final_context.push_str("\n");
+    }
+    
+    // Extract summaries
+    if let Some(summaries) = json.get("summaries").and_then(|v| v.as_array()) {
+        for (i, summary_obj) in summaries.iter().enumerate() {
+            if let (Some(query_str), Some(summary_str)) = (
+                summary_obj.get("query").and_then(|v| v.as_str()),
+                summary_obj.get("summary").and_then(|v| v.as_str())
+            ) {
+                final_context.push_str(&format!("🔎 **Query {}:** {}\n📄 **Summary:** {}\n\n", 
+                    i + 1, query_str, summary_str));
+            }
+        }
+    }
+    
+    // Extract sources
+    if let Some(sources) = json.get("sources").and_then(|v| v.as_array()) {
+        if !sources.is_empty() {
+            final_context.push_str("📚 **Sources:**\n");
+            for (i, source) in sources.iter().enumerate() {
+                if let Some(source_str) = source.as_str() {
+                    final_context.push_str(&format!("{}. {}\n", i + 1, source_str));
+                }
+            }
+        }
+    }
+    
+    Ok(final_context)
+}
+
+// Legacy helper functions (now unused but kept for compatibility)
