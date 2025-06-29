@@ -66,6 +66,9 @@ https://github.com/user-attachments/assets/8ed11232-de9c-469b-b332-143ca41daf15
 ## ✨ Features
 
 ### Current Features
+- **🔍 Intelligent Web Search** - Real-time internet search with SearxNG integration
+- **🧠 Thinking Mode Control** - Toggle AI reasoning traces on/off
+- **🌐 Multi-Engine Fallback** - Multiple SearxNG instances for reliability
 - **🎬 Animated Shine Borders** - Eye-catching animated message borders with color cycling
 - **📱 Responsive Design** - Mobile-first approach with seamless cross-device compatibility  
 - **🌙 Theme System** - Dark/light mode with system preference detection
@@ -116,11 +119,28 @@ ollama pull llama2
 ollama pull codellama
 ollama pull mistral
 
+# For web search feature, also pull:
+ollama pull qwen3:0.6b
+
 # Verify installation
 ollama list
 ```
 
-### Step 3: Install BeautifyOllama
+### Step 3: Setup Web Search (Optional)
+
+For enhanced web search capabilities, set up a local SearxNG instance:
+
+```bash
+# Quick setup with provided script
+./setup-searxng.sh
+
+# Or manually install Python dependencies
+pip install ollama requests
+```
+
+For detailed web search setup, see [Web Search Integration Guide](WEB_SEARCH_INTEGRATION.md).
+
+### Step 4: Install BeautifyOllama
 
 ```bash
 # Clone the repository
@@ -142,7 +162,7 @@ yarn dev
 pnpm dev
 ```
 
-### Step 4: Access the Application
+### Step 5: Access the Application
 
 Open your browser and navigate to [http://localhost:3000](http://localhost:3000)
 

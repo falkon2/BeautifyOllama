@@ -59,13 +59,13 @@ jobs:
       - name: Install frontend dependencies
         run: npm install
 
-      - name: Build the app
-        run: |
-          if [ "${{ matrix.platform }}" = "macos-latest" ]; then
-            npm run tauri build -- --target universal-apple-darwin
-          else
-            npm run tauri build
-          fi
+      - name: Build the app (macOS)
+        if: matrix.platform == 'macos-latest'
+        run: npm run tauri build -- --target universal-apple-darwin
+
+      - name: Build the app (Windows/Linux)
+        if: matrix.platform != 'macos-latest'
+        run: npm run tauri build
 
       - name: Upload artifacts (windows only)
         if: matrix.platform == 'windows-latest'
