@@ -3,10 +3,31 @@ use std::path::Path;
 use std::net::TcpStream;
 use std::time::Duration;
 use serde_json::json;
-use regex::Regex;
 
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
+
+// Default Ollama port
+const DEFAULT_OLLAMA_PORT: u16 = 11434;
+
+// Helper function to get Ollama port from environment or use default
+fn get_ollama_port() -> u16 {
+    std::env::var("OLLAMA_PORT")
+        .ok()
+        .and_then(|s| s.parse::<u16>().ok())
+        .unwrap_or(DEFAULT_OLLAMA_PORT)
+}
+
+// Helper function to get Ollama base URL
+fn get_ollama_base_url() -> String {
+    let port = get_ollama_port();
+    format!("http://localhost:{}", port)
+}
+
+// Helper function to get Ollama API endpoint
+fn get_ollama_api_url(endpoint: &str) -> String {
+    format!("{}/api/{}", get_ollama_base_url(), endpoint)
+}
 
 // Helper function to generate extended PATH based on platform
 fn get_extended_path() -> String {
@@ -54,10 +75,32 @@ fn get_platform() -> String {
 }
 
 #[tauri::command]
+fn get_ollama_port_config() -> u16 {
+    get_ollama_port()
+}
+
+#[tauri::command]
+fn set_ollama_port_config(port: u16) -> Result<String, String> {
+    if port < 1024 || port > 65535 {
+        return Err("Port must be between 1024 and 65535".to_string());
+    }
+    
+    std::env::set_var("OLLAMA_PORT", port.to_string());
+    Ok(format!("Ollama port set to {}", port))
+}
+
+#[tauri::command]
+fn get_ollama_url() -> String {
+    get_ollama_base_url()
+}
+
+#[tauri::command]
 fn check_ollama_service_running() -> bool {
-    // Check if Ollama service is running by attempting to connect to port 11434
+    // Check if Ollama service is running by attempting to connect to the configured port
+    let port = get_ollama_port();
+    let address = format!("127.0.0.1:{}", port);
     TcpStream::connect_timeout(
-        &"127.0.0.1:11434".parse().unwrap(),
+        &address.parse().unwrap(),
         Duration::from_millis(1000)
     ).is_ok()
 }
@@ -366,8 +409,9 @@ async fn list_installed_models() -> Result<Vec<String>, String> {
                 // If ollama list fails, try to use the API directly
                 if cfg!(target_os = "windows") {
                     // On Windows, try to use curl to call the API
+                    let api_url = get_ollama_api_url("tags");
                     let api_result = Command::new("curl")
-                        .args(["-s", "http://localhost:11434/api/tags"])
+                        .args(["-s", &api_url])
                         .output();
                     
                     match api_result {
@@ -603,10 +647,11 @@ async fn stop_ollama_service() -> Result<String, String> {
 #[tauri::command]
 async fn load_ollama_model(model_name: String) -> Result<String, String> {
     // Load a model by making a simple request to it
+    let api_url = get_ollama_api_url("generate");
     let output = Command::new("curl")
         .args([
             "-X", "POST",
-            "http://localhost:11434/api/generate",
+            &api_url,
             "-H", "Content-Type: application/json",
             "-d", &format!(r#"{{"model": "{}", "prompt": "hello", "stream": false}}"#, model_name)
         ])
@@ -620,7 +665,7 @@ async fn load_ollama_model(model_name: String) -> Result<String, String> {
                 if stdout.contains("error") {
                     Err(format!("Failed to load model '{}': {}", model_name, stdout))
                 } else {
-                    Ok(format!("Model '{}' loaded successfully. API Response received. Command: curl -X POST http://localhost:11434/api/generate", model_name))
+                    Ok(format!("Model '{}' loaded successfully. API Response received. Command: curl -X POST {}", model_name, api_url))
                 }
             } else {
                 let error = String::from_utf8_lossy(&output.stderr);
@@ -732,18 +777,19 @@ async fn scan_for_models() -> Result<Vec<String>, String> {
 
 #[tauri::command]
 fn check_ollama_service_status() -> Result<bool, String> {
-    // Primary method: Check if Ollama service is running by testing TCP connection to port 11434
+    // Primary method: Check if Ollama service is running by testing TCP connection to the configured port
     if check_ollama_service_running() {
         return Ok(true);
     }
 
     // Secondary method: Try to call the API directly
+    let api_url = get_ollama_api_url("tags");
     let output = Command::new("curl")
         .args([
             "-s",
             "--connect-timeout", "2",
             "--max-time", "3",
-            "http://localhost:11434/api/tags"
+            &api_url
         ])
         .output();
 
@@ -884,7 +930,7 @@ async fn fix_windows_ollama_service() -> Result<String, String> {
                 attempts += 1;
             }
             
-            fix_info.push_str("   ⚠ Service was started but is not responding on port 11434\n");
+            fix_info.push_str(&format!("   ⚠ Service was started but is not responding on port {}\n", get_ollama_port()));
             fix_info.push_str("   Try restarting the app or running 'ollama serve' manually\n");
             
             Err(fix_info)
@@ -1451,7 +1497,10 @@ pub fn run() {
         diagnose_windows_ollama_issues,
         fix_windows_ollama_service,
         ask_ollama_verbose,
-        search_web
+        search_web,
+        get_ollama_port_config,
+        set_ollama_port_config,
+        get_ollama_url
     ])
     .setup(|app| {
       if cfg!(debug_assertions) {

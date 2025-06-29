@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useTheme } from "next-themes";
-import { askOllama, listOllamaModels, forceRefreshModels, checkOllamaStatus, askOllamaVerbose, askOllamaStreaming, searchWeb, type OllamaStatus } from "@/app/services/ollamaService";
+import { askOllama, listOllamaModels, forceRefreshModels, checkOllamaStatus, askOllamaVerbose, askOllamaStreaming, searchWeb, clearPortCache, type OllamaStatus } from "@/app/services/ollamaService";
 import { PlaceholdersAndVanishInput } from "@/components/ui/placeholders-and-vanish-input";
 import { TextGenerateEffect } from "@/components/ui/enhanced-text-generate-effect";
 import { StreamingTextEffect } from "@/components/ui/streaming-text-effect";
@@ -10,10 +10,11 @@ import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 import { ThinkingRenderer } from "@/components/ThinkingRenderer";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MessageSquare, Bot, User, Plus, MoreHorizontal, Menu, Sun, Moon, Trash2, X, Settings, Terminal, Eye, EyeOff, RefreshCw, BarChart3, Search } from "lucide-react";
+import { MessageSquare, Bot, User, Plus, MoreHorizontal, Menu, Sun, Moon, Trash2, X, Settings as SettingsIcon, Terminal, Eye, EyeOff, RefreshCw, BarChart3, Search } from "lucide-react";
 import { ShineBorder } from "@/components/magicui/shine-border";
 import { OllamaChatIcon } from "@/components/ui/ollama-chat-icon";
 import { OllamaSetupOverlay } from "@/components/OllamaSetupOverlay";
+import { Settings } from "@/components/Settings";
 
 interface Message {
   id: string;
@@ -62,6 +63,7 @@ export default function Chat() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [ollamaStatus, setOllamaStatus] = useState<OllamaStatus>({ isInstalled: false, isRunning: false });
   const [showOllamaSetup, setShowOllamaSetup] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [commandLogs, setCommandLogs] = useState<CommandLog[]>([]);
   const [showLogs, setShowLogs] = useState(false);
   const [clearConfirmation, setClearConfirmation] = useState<ClearConfirmationState>({
@@ -761,6 +763,23 @@ export default function Chat() {
     }
   }, [refreshModels]);
 
+  const handlePortChanged = useCallback(async () => {
+    // When the port changes, refresh Ollama status and models to use the new port
+    try {
+      // Clear cached port to force re-fetch from backend
+      clearPortCache();
+      
+      const status = await checkOllamaStatus();
+      setOllamaStatus(status);
+      
+      if (status.isRunning) {
+        await refreshModels();
+      }
+    } catch (error) {
+      console.error('Error updating status after port change:', error);
+    }
+  }, [refreshModels]);
+
   const handleStatsRequest = async () => {
     // Toggle verbose mode for future messages
     setVerboseMode(!verboseMode);
@@ -943,10 +962,10 @@ export default function Chat() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setShowOllamaSetup(true)}
-                title="Ollama Settings"
+                onClick={() => setShowSettings(true)}
+                title="Settings"
               >
-                <Settings className="w-4 h-4" />
+                <SettingsIcon className="w-4 h-4" />
               </Button>
               <Button
                 variant="ghost"
@@ -1476,6 +1495,14 @@ export default function Chat() {
         onComplete={handleSetupComplete}
         onCommandLog={addCommandLog}
         onCommandUpdate={updateCommandLog}
+      />
+
+      {/* Settings Modal */}
+      <Settings
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        onPortChanged={handlePortChanged}
+        onOllamaStatusChange={handleOllamaStatusChange}
       />
     </div>
   );

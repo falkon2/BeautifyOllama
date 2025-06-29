@@ -1,5 +1,44 @@
 import { invoke } from '@tauri-apps/api/core';
 
+// Custom port management
+let cachedPort: number | null = null;
+
+export async function getOllamaPort(): Promise<number> {
+  if (cachedPort === null) {
+    try {
+      cachedPort = await invoke('get_ollama_port_config') as number;
+    } catch (error) {
+      console.warn('Failed to get Ollama port from backend, using default:', error);
+      cachedPort = 11434;
+    }
+  }
+  return cachedPort;
+}
+
+export function clearPortCache(): void {
+  cachedPort = null;
+}
+
+export async function setOllamaPort(port: number): Promise<string> {
+  try {
+    const result = await invoke('set_ollama_port_config', { port }) as string;
+    cachedPort = port; // Update cache
+    return result;
+  } catch (error: any) {
+    throw new Error(`Failed to set Ollama port: ${error.message || error}`);
+  }
+}
+
+export async function getOllamaBaseUrl(): Promise<string> {
+  try {
+    return await invoke('get_ollama_url') as string;
+  } catch (error) {
+    // Fallback to constructing URL from port
+    const port = await getOllamaPort();
+    return `http://localhost:${port}`;
+  }
+}
+
 // Streaming Ollama wrapper for real-time text generation
 export async function askOllamaStreaming(
   prompt: string, 
@@ -18,7 +57,8 @@ export async function askOllamaStreaming(
       stream: true 
     };
 
-    const res = await fetch("http://localhost:11434/api/generate", {
+    const baseUrl = await getOllamaBaseUrl();
+    const res = await fetch(`${baseUrl}/api/generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(requestBody),
@@ -77,7 +117,8 @@ export async function askOllama(
       requestBody.images = images;
     }
 
-    const res = await fetch("http://localhost:11434/api/generate", {
+    const baseUrl = await getOllamaBaseUrl();
+    const res = await fetch(`${baseUrl}/api/generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(requestBody),
@@ -124,7 +165,8 @@ export async function askOllama(
 export async function listOllamaModels(): Promise<string[]> {
   try {
     // Primary method: Try the API directly
-    const res = await fetch("http://localhost:11434/api/tags", {
+    const baseUrl = await getOllamaBaseUrl();
+    const res = await fetch(`${baseUrl}/api/tags`, {
       method: "GET",
       signal: AbortSignal.timeout(5000), // 5 second timeout
     });
@@ -198,7 +240,8 @@ export async function forceRefreshModels(): Promise<string[]> {
   try {
     // On Windows, sometimes we need to force a refresh of the Ollama connection
     // First, try to "wake up" Ollama by making a simple API call
-    await fetch("http://localhost:11434/api/tags", {
+    const baseUrl = await getOllamaBaseUrl();
+    await fetch(`${baseUrl}/api/tags`, {
       method: "GET",
       signal: AbortSignal.timeout(3000),
     }).catch(() => {}); // Ignore errors, this is just to wake up the service
@@ -244,7 +287,8 @@ export interface DownloadProgress {
 export async function checkOllamaStatus(): Promise<OllamaStatus> {
   try {
     // Primary method: Try to connect to Ollama API using standard fetch
-    const res = await fetch("http://localhost:11434/api/tags", {
+    const baseUrl = await getOllamaBaseUrl();
+    const res = await fetch(`${baseUrl}/api/tags`, {
       method: "GET",
       signal: AbortSignal.timeout(3000), // 3 second timeout
     });
