@@ -63,6 +63,19 @@ jobs:
         if: matrix.platform == 'macos-latest'
         run: npm run tauri build -- --target universal-apple-darwin
 
+      - name: Debug macOS artifacts
+        if: matrix.platform == 'macos-latest'
+        run: |
+          echo "=== Checking for macOS build artifacts ==="
+          find src-tauri/target -name "*.dmg" -o -name "*.app" -o -name "*.pkg" 2>/dev/null || echo "No artifacts found with common extensions"
+          echo "=== Directory structure ==="
+          ls -la src-tauri/target/ || echo "target directory not found"
+          ls -la src-tauri/target/universal-apple-darwin/ 2>/dev/null || echo "universal-apple-darwin directory not found"
+          ls -la src-tauri/target/universal-apple-darwin/release/ 2>/dev/null || echo "universal-apple-darwin/release directory not found"
+          ls -la src-tauri/target/universal-apple-darwin/release/bundle/ 2>/dev/null || echo "universal-apple-darwin/release/bundle directory not found"
+          ls -la src-tauri/target/release/ 2>/dev/null || echo "release directory not found"
+          ls -la src-tauri/target/release/bundle/ 2>/dev/null || echo "release/bundle directory not found"
+
       - name: Build the app (Windows/Linux)
         if: matrix.platform != 'macos-latest'
         run: npm run tauri build
@@ -79,7 +92,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: macos-artifacts
-          path: src-tauri/target/release/bundle/
+          path: |
+            src-tauri/target/universal-apple-darwin/release/bundle/
+            src-tauri/target/release/bundle/
+          if-no-files-found: warn
 
       - name: Upload artifacts (linux)
         if: matrix.platform == 'ubuntu-latest'
