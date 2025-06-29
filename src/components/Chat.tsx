@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useTheme } from "next-themes";
-import { askOllama, listOllamaModels, checkOllamaStatus, askOllamaVerbose, askOllamaStreaming, searchWeb, type OllamaStatus } from "@/app/services/ollamaService";
+import { askOllama, listOllamaModels, forceRefreshModels, checkOllamaStatus, askOllamaVerbose, askOllamaStreaming, searchWeb, type OllamaStatus } from "@/app/services/ollamaService";
 import { PlaceholdersAndVanishInput } from "@/components/ui/placeholders-and-vanish-input";
 import { TextGenerateEffect } from "@/components/ui/enhanced-text-generate-effect";
 import { StreamingTextEffect } from "@/components/ui/streaming-text-effect";
@@ -170,18 +170,44 @@ export default function Chat() {
     };
   }, [clearConfirmation.isOpen, clearConfirmation.isClearing]);
 
-  const refreshModels = useCallback(async () => {
+  const refreshModels = useCallback(async (forceRefresh: boolean = false) => {
     if (!ollamaStatus.isRunning) return;
     
     setRefreshingModels(true);
     try {
-      const availableModels = await listOllamaModels();
+      // Use force refresh on Windows or when explicitly requested
+      const isWindows = typeof navigator !== 'undefined' && navigator.userAgent.includes('Windows');
+      const availableModels = forceRefresh || isWindows 
+        ? await forceRefreshModels() 
+        : await listOllamaModels();
+      
       setModels(availableModels);
       
       // Set default model if none selected or current model not available
       if (availableModels.length > 0) {
         if (!model || !availableModels.includes(model)) {
           setModel(availableModels[0]);
+        }
+      } else if (isWindows) {
+        // On Windows, if we still don't have models, try multiple times with increasing delays
+        const retryAttempts = [1000, 3000, 5000]; // 1s, 3s, 5s delays
+        
+        for (let i = 0; i < retryAttempts.length; i++) {
+          setTimeout(async () => {
+            try {
+              const retryModels = await forceRefreshModels();
+              if (retryModels.length > 0) {
+                setModels(retryModels);
+                if (!model || !retryModels.includes(model)) {
+                  setModel(retryModels[0]);
+                }
+                // Success, exit early
+                return;
+              }
+            } catch (error) {
+              console.error(`Windows model retry ${i + 1} failed:`, error);
+            }
+          }, retryAttempts[i]);
         }
       }
     } catch (error) {
@@ -191,6 +217,16 @@ export default function Chat() {
       setRefreshingModels(false);
     }
   }, [ollamaStatus.isRunning, model]);
+
+  // Event handler wrapper for refresh button clicks
+  const handleRefreshModels = useCallback(() => {
+    refreshModels(false);
+  }, [refreshModels]);
+
+  // Event handler wrapper for force refresh
+  const handleForceRefreshModels = useCallback(() => {
+    refreshModels(true);
+  }, [refreshModels]);
 
   useEffect(() => {
     // Check Ollama status first, then load models if available
@@ -227,6 +263,28 @@ export default function Chat() {
       setModel("");
     }
   }, [refreshModels]);
+
+  // Windows-specific: Periodic background model refresh
+  useEffect(() => {
+    const isWindows = typeof navigator !== 'undefined' && navigator.userAgent.includes('Windows');
+    
+    if (!isWindows || !ollamaStatus.isRunning) return;
+    
+    // Set up periodic refresh for Windows every 30 seconds
+    const interval = setInterval(async () => {
+      try {
+        // Only refresh if we don't have models or there's been a long time since last refresh
+        if (models.length === 0) {
+          console.log('Windows: Background model refresh - no models detected');
+          await refreshModels(true);
+        }
+      } catch (error) {
+        console.error('Windows background model refresh failed:', error);
+      }
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(interval);
+  }, [ollamaStatus.isRunning, models.length, refreshModels]);
 
   const createNewConversation = () => {
     const newConversation: Conversation = {
@@ -921,7 +979,7 @@ export default function Chat() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={refreshModels}
+                  onClick={handleRefreshModels}
                   disabled={!ollamaStatus.isRunning || refreshingModels}
                   title="Refresh model list"
                 >
@@ -974,7 +1032,7 @@ export default function Chat() {
                     </Button>
                     <Button
                       variant="outline"
-                      onClick={refreshModels}
+                      onClick={handleRefreshModels}
                       disabled={refreshingModels}
                     >
                       {refreshingModels ? (

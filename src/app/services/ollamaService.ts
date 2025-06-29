@@ -161,6 +161,74 @@ export async function listOllamaModels(): Promise<string[]> {
   }
 }
 
+// Add periodic model refresh and Windows-specific fixes
+export async function listOllamaModelsWithRetry(): Promise<string[]> {
+  const maxRetries = 5; // Increased from 3 for Windows
+  const retryDelay = 800; // Slightly reduced delay
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const models = await listOllamaModels();
+      if (models.length > 0) {
+        return models;
+      }
+      
+      // If no models found and not the last attempt, wait and retry
+      if (attempt < maxRetries) {
+        // On Windows, add a small random jitter to avoid timing issues
+        const jitter = Math.random() * 200; // 0-200ms
+        await new Promise(resolve => setTimeout(resolve, (retryDelay * attempt) + jitter));
+      }
+    } catch (error) {
+      console.warn(`Model listing attempt ${attempt} failed:`, error);
+      
+      // If not the last attempt, wait and retry
+      if (attempt < maxRetries) {
+        const jitter = Math.random() * 200; // 0-200ms
+        await new Promise(resolve => setTimeout(resolve, (retryDelay * attempt) + jitter));
+      }
+    }
+  }
+  
+  return [];
+}
+
+// Windows-specific model refresh with force reload
+export async function forceRefreshModels(): Promise<string[]> {
+  try {
+    // On Windows, sometimes we need to force a refresh of the Ollama connection
+    // First, try to "wake up" Ollama by making a simple API call
+    await fetch("http://localhost:11434/api/tags", {
+      method: "GET",
+      signal: AbortSignal.timeout(3000),
+    }).catch(() => {}); // Ignore errors, this is just to wake up the service
+    
+    // Wait a moment for the service to respond
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Now try to get the models with retry logic
+    const models = await listOllamaModelsWithRetry();
+    
+    // If still no models on Windows, try one more aggressive approach
+    if (models.length === 0) {
+      try {
+        // Try the backend command directly as a last resort
+        const backendModels = await invoke('list_installed_models') as string[];
+        if (backendModels && backendModels.length > 0) {
+          return backendModels;
+        }
+      } catch (backendError) {
+        console.warn('Backend fallback failed:', backendError);
+      }
+    }
+    
+    return models;
+  } catch (error) {
+    console.error('Force refresh failed:', error);
+    return [];
+  }
+}
+
 export interface OllamaStatus {
   isInstalled: boolean;
   isRunning: boolean;
