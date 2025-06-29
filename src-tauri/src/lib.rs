@@ -1472,13 +1472,17 @@ pub fn run() {
 fn get_python_script_path() -> String {
     // Get the path to the main Python search script
     let current_dir = std::env::current_dir().unwrap_or_default();
-    let script_path = current_dir.join("ollama-web-search").join("main.py");
+    let script_path = current_dir.join("tools").join("web-search").join("main.py");
     
     if script_path.exists() {
         script_path.to_string_lossy().to_string()
     } else {
         // Fallback paths
         let fallback_paths = vec![
+            "./tools/web-search/main.py",
+            "../tools/web-search/main.py",
+            "../../tools/web-search/main.py",
+            // Legacy paths for backward compatibility
             "./ollama-web-search/main.py",
             "../ollama-web-search/main.py",
             "../../ollama-web-search/main.py",
@@ -1491,7 +1495,7 @@ fn get_python_script_path() -> String {
         }
         
         // Default path - will cause error if not found
-        "ollama-web-search/main.py".to_string()
+        "tools/web-search/main.py".to_string()
     }
 }
 

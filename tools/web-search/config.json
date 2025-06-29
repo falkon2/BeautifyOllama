@@ -1,0 +1,16 @@
+{
+  "model": "qwen3:0.6b",
+  "searxng_instances": [
+    "http://localhost:32768",
+    "https://search.inetol.net/search",
+    "https://searx.be/search",
+    "https://search.brave4u.com/search",
+    "https://priv.au/search"
+  ],
+  "max_results": 8,
+  "timeout": 10,
+  "max_retries": 3,
+  "history_file": "search_history.json",
+  "enable_colors": true,
+  "streaming_delay": 0.02
+}
