@@ -51,6 +51,14 @@
 
 BeautifyOllama is an open-source web interface that enhances your local Ollama AI model interactions with a beautiful, modern design. Built with cutting-edge web technologies, it provides a seamless chat experience with stunning visual effects and enterprise-grade functionality.
 
+**🎉 Latest Updates (v1.6.9)**
+- **🔧 Custom Port Support** - Configure Ollama to run on any port
+- **⚙️ Comprehensive Settings Panel** - Complete Ollama service management
+- **🔍 Enhanced Web Search** - Improved search with source tracking and reliability
+- **📱 Cross-Platform Desktop App** - Native desktop application with Tauri
+- **🧠 Advanced AI Features** - Thinking mode, verbose stats, and conversation management
+- **🛠️ Developer Experience** - Improved error handling and Windows compatibility
+
 > **⚠️ Early Development Notice**  
 > This project is in active development. Features and APIs may change. We welcome contributions and feedback from the community.
 
@@ -66,27 +74,32 @@ https://github.com/user-attachments/assets/8ed11232-de9c-469b-b332-143ca41daf15
 ## ✨ Features
 
 ### Current Features
-- **🔍 Intelligent Web Search** - Real-time internet search with SearxNG integration
-- **🧠 Thinking Mode Control** - Toggle AI reasoning traces on/off
-- **🌐 Multi-Engine Fallback** - Multiple SearxNG instances for reliability
+- **🔍 Intelligent Web Search** - Real-time internet search with SearxNG integration and source tracking
+- **🧠 Thinking Mode Control** - Toggle AI reasoning traces on/off with clean rendering
+- **🌐 Multi-Engine Fallback** - Multiple SearxNG instances for reliability and uptime
+- **🔧 Custom Port Support** - Configure Ollama to run on any port (not just 11434)
+- **⚙️ Comprehensive Settings** - Complete Ollama management, model downloads, and configuration
 - **🎬 Animated Shine Borders** - Eye-catching animated message borders with color cycling
 - **📱 Responsive Design** - Mobile-first approach with seamless cross-device compatibility  
 - **🌙 Theme System** - Dark/light mode with system preference detection
-- **⚡ Real-time Streaming** - Live response streaming from Ollama models
+- **⚡ Real-time Streaming** - Live response streaming from Ollama models with typing effects
 - **🎯 Clean Interface** - Simplified message rendering focused on readability
-- **🔄 Model Management** - Easy switching between available Ollama models
+- **🔄 Advanced Model Management** - Download, delete, and switch between Ollama models
+- **📊 Verbose Statistics** - Toggle detailed timing and performance stats for responses
+- **💬 Conversation Management** - Persistent chat history with sidebar navigation
+- **🖥️ Cross-Platform Support** - Windows, macOS, and Linux compatibility with platform-specific optimizations
 - **⌨️ Smart Input** - Keyboard shortcuts (Enter to send, Shift+Enter for newlines)
-- **🎨 Modern UI/UX** - Glassmorphism effects and smooth micro-animations
+- **🎨 Modern UI/UX** - Glassmorphism effects, smooth micro-animations, and polished design
 
 ### 🚧 Upcoming Features
-- **🔐 API Key Management** - Secure storage and management of API credentials
-- **💾 Conversation History** - Persistent chat history with search functionality
-- **🔧 Advanced Settings** - Customizable model parameters and system prompts
-- **📁 File Upload Support** - Document and image processing capabilities
+- ** File Upload Support** - Document and image processing capabilities
 - **🌐 Multi-language Support** - Internationalization for global users
-- **📊 Usage Analytics** - Token usage tracking and conversation insights
+- **📊 Advanced Usage Analytics** - Enhanced token usage tracking and conversation insights
 - **🔌 Plugin System** - Extensible architecture for third-party integrations
 - **☁️ Cloud Sync** - Optional cloud backup for conversations and settings
+- **🔐 Multi-API Support** - Integration with OpenAI, Anthropic, and other AI providers
+- **🎯 Advanced Prompt Templates** - Pre-built and custom prompt management
+- **🔒 Enhanced Security** - API key encryption and secure credential storage
 
 ## 🚀 Installation
 
@@ -119,8 +132,8 @@ ollama pull llama2
 ollama pull codellama
 ollama pull mistral
 
-# For web search feature, also pull:
-ollama pull qwen3:0.6b
+# For web search feature, also pull a small model:
+ollama pull qwen2:0.5b
 
 # Verify installation
 ollama list
@@ -128,17 +141,17 @@ ollama list
 
 ### Step 3: Setup Web Search (Optional)
 
-For enhanced web search capabilities, set up a local SearxNG instance:
+For enhanced web search capabilities, BeautifyOllama includes integrated Python-based web search:
 
 ```bash
-# Quick setup with provided script
-./setup-searxng.sh
-
-# Or manually install Python dependencies
+# Install Python dependencies for web search
 pip install ollama requests
+
+# The web search feature uses multiple SearxNG instances
+# No additional setup required - it's built-in!
 ```
 
-For detailed web search setup, see [Web Search Integration Guide](WEB_SEARCH_INTEGRATION.md).
+For detailed web search setup and configuration, see [Web Search Integration Guide](WEB_SEARCH_INTEGRATION.md).
 
 ### Step 4: Install BeautifyOllama
 
@@ -176,12 +189,16 @@ Create a `.env.local` file in the project root:
 # Ollama Configuration
 NEXT_PUBLIC_OLLAMA_API_URL=http://localhost:11434
 NEXT_PUBLIC_DEFAULT_MODEL=llama2
+OLLAMA_PORT=11434
 
-# Feature Flags (Coming Soon)
+# Web Search Configuration
+SEARXNG_INSTANCES=https://search.example.com,https://searx.example.org
+
+# Feature Flags
 NEXT_PUBLIC_ENABLE_ANALYTICS=false
 NEXT_PUBLIC_ENABLE_CLOUD_SYNC=false
 
-# API Keys (Future Feature)
+# Future API Keys
 # OPENAI_API_KEY=your_openai_key_here
 # ANTHROPIC_API_KEY=your_anthropic_key_here
 ```
@@ -206,8 +223,22 @@ export const ollamaConfig = {
 1. **Start a Conversation**: Type your message in the input field
 2. **Send Messages**: Press `Enter` or click the send button
 3. **New Lines**: Use `Shift + Enter` for multi-line messages
-4. **Switch Models**: Use the model selector in the sidebar
+4. **Switch Models**: Use the model selector in the header
 5. **Theme Toggle**: Click the theme button to switch between light/dark modes
+6. **Enable Features**: Use the toggle buttons below the input for:
+   - **Stats Mode**: View detailed response timing and performance
+   - **Thinking Mode**: See AI reasoning process (when supported)
+   - **Web Search**: Include real-time internet search in responses
+
+### Advanced Features
+
+- **Settings Panel**: Click the gear icon to access:
+  - **Connection Settings**: Configure custom Ollama ports
+  - **Model Management**: Download new models or delete existing ones
+  - **Service Control**: Start/stop Ollama service
+  - **Command Logs**: View detailed operation logs
+- **Conversation Management**: Navigate between chats using the sidebar
+- **Response Features**: View sources for web search results and detailed statistics
 
 ### Mobile Usage
 
@@ -222,11 +253,13 @@ export const ollamaConfig = {
 | Layer | Technology | Purpose |
 |-------|------------|---------|
 | **Frontend** | Next.js 15 + React 19 | Modern React framework with App Router |
+| **Backend** | Tauri + Rust | Native desktop integration and system calls |
 | **Styling** | TailwindCSS 4 | Utility-first CSS framework |
 | **Animation** | Framer Motion | Smooth animations and transitions |
-| **Language** | TypeScript | Type safety and developer experience |
+| **Language** | TypeScript + Rust | Type safety and high-performance backend |
 | **State Management** | React Hooks | Local state management |
 | **Theme** | next-themes | Dark/light mode functionality |
+| **Search** | Python + SearxNG | Integrated web search capabilities |
 
 ### Project Structure
 
@@ -236,16 +269,27 @@ beautifyollama/
 │   ├── app/                    # Next.js App Router
 │   │   ├── globals.css        # Global styles
 │   │   ├── layout.tsx         # Root layout
-│   │   └── page.tsx           # Home page
+│   │   ├── page.tsx           # Home page
+│   │   └── services/          # Service layer
+│   │       └── ollamaService.ts
 │   ├── components/            # React components
 │   │   ├── Chat.tsx          # Main chat interface
-│   │   ├── ShineBorder.tsx   # Animated border component
+│   │   ├── Settings.tsx      # Settings modal
 │   │   ├── MarkdownRenderer.tsx
+│   │   ├── ThinkingRenderer.tsx
 │   │   └── ui/               # Reusable UI components
 │   ├── config/               # Configuration files
 │   ├── hooks/                # Custom React hooks
 │   ├── lib/                  # Utility functions
 │   └── types/                # TypeScript type definitions
+├── src-tauri/                # Tauri Rust backend
+│   ├── src/
+│   │   ├── main.rs          # Main Tauri entry
+│   │   └── lib.rs           # Core backend logic
+│   └── Cargo.toml          # Rust dependencies
+├── tools/                    # External tools
+│   ├── web-search/          # Python web search integration
+│   └── README.md           # Tools documentation
 ├── public/                   # Static assets
 ├── docs/                     # Documentation
 └── tests/                    # Test files
@@ -297,29 +341,37 @@ We welcome contributions from the community! BeautifyOllama is an early-stage pr
 
 ```bash
 npm run dev          # Start development server
-npm run build        # Build for production
+npm run build        # Build for production  
 npm run start        # Start production server
 npm run lint         # Run ESLint
 npm run type-check   # Run TypeScript compiler
+npm run tauri dev    # Start Tauri development mode
+npm run tauri build  # Build Tauri desktop application
 npm test             # Run tests (when available)
 ```
 
 ## 🛣️ Roadmap
 
 ### Phase 1: Core Features (Current)
-- [x] Basic chat interface
-- [x] Ollama integration
-- [x] Theme system
-- [x] Responsive design
-- [ ] Enhanced error handling
-- [ ] Performance optimizations
+- [x] Basic chat interface with real-time streaming
+- [x] Ollama integration with custom port support
+- [x] Theme system (dark/light mode)
+- [x] Responsive design for all devices
+- [x] Web search integration with SearxNG
+- [x] Comprehensive settings and model management
+- [x] Conversation history and management
+- [x] Advanced thinking and verbose modes
+- [x] Cross-platform support (Windows, macOS, Linux)
+- [ ] Enhanced error handling and user feedback
+- [ ] Performance optimizations for large conversations
 
 ### Phase 2: Advanced Features (Next)
-- [ ] API key management system
-- [ ] Conversation history persistence
-- [ ] File upload and processing
-- [ ] Advanced model settings
-- [ ] Export/import conversations
+- [ ] File upload and document processing
+- [ ] Advanced prompt templates and management
+- [ ] Export/import conversations (JSON, Markdown)
+- [ ] Custom model parameter configuration
+- [ ] Plugin architecture foundation
+- [ ] Enhanced search within conversation history
 
 ### Phase 3: Enterprise Features (Future)
 - [ ] Multi-user support
@@ -339,10 +391,14 @@ npm test             # Run tests (when available)
 | Feature | Status | Priority |
 |---------|--------|----------|
 | Core Chat | ✅ Complete | High |
+| Web Search | ✅ Complete | High |
+| Settings Panel | ✅ Complete | High |
+| Model Management | ✅ Complete | High |
 | Theme System | ✅ Complete | High |
 | Mobile Support | ✅ Complete | High |
-| API Keys | 🚧 In Progress | High |
+| Custom Ports | ✅ Complete | Medium |
 | File Upload | 📋 Planned | Medium |
+| Multi-API Support | 📋 Planned | Medium |
 | Cloud Sync | 📋 Planned | Low |
 
 ## 🐛 Troubleshooting
@@ -359,6 +415,26 @@ ollama list
 
 # Test API endpoint
 curl http://localhost:11434/api/tags
+
+# For custom ports, test the specific port
+curl http://localhost:YOUR_PORT/api/tags
+```
+
+**Model Loading Issues (Windows)**
+```bash
+# Force refresh models in the app or try:
+ollama list
+ollama pull llama2
+# Then refresh the model list in BeautifyOllama settings
+```
+
+**Web Search Not Working**
+```bash
+# Ensure Python dependencies are installed
+pip install ollama requests
+
+# Check if SearxNG instances are accessible
+# The app will automatically try multiple instances
 ```
 
 **Build Errors**
@@ -369,6 +445,9 @@ rm -rf .next
 # Reinstall dependencies
 rm -rf node_modules package-lock.json
 npm install
+
+# For Tauri build issues
+cd src-tauri && cargo clean
 ```
 
 **Hydration Errors**
