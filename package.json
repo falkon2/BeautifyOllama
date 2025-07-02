@@ -43,7 +43,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "tailwindcss": "^4",
-    "tw-animate-css": "^1.3.2",
+    "tw-animate-css": "^1.3.4",
     "typescript": "^5"
   }
 }
