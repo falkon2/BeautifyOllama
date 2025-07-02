@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useTheme } from "next-themes";
 import { askOllama, listOllamaModels, forceRefreshModels, checkOllamaStatus, askOllamaVerbose, askOllamaStreaming, searchWeb, clearPortCache, type OllamaStatus } from "@/app/services/ollamaService";
+import { checkForUpdates } from "@/app/services/updateService";
 import { PlaceholdersAndVanishInput } from "@/components/ui/placeholders-and-vanish-input";
 import { TextGenerateEffect } from "@/components/ui/enhanced-text-generate-effect";
 import { StreamingTextEffect } from "@/components/ui/streaming-text-effect";
@@ -15,6 +16,8 @@ import { ShineBorder } from "@/components/magicui/shine-border";
 import { OllamaChatIcon } from "@/components/ui/ollama-chat-icon";
 import { OllamaSetupOverlay } from "@/components/OllamaSetupOverlay";
 import { Settings } from "@/components/Settings";
+import { UpdateChecker } from "@/components/UpdateChecker";
+import { UpdatePopup } from "@/components/UpdatePopup";
 
 interface Message {
   id: string;
@@ -49,6 +52,15 @@ interface ClearConfirmationState {
   isClearing: boolean;
 }
 
+interface UpdateInfo {
+  available: boolean;
+  current_version: string;
+  latest_version: string;
+  download_url?: string;
+  release_notes?: string;
+  release_url?: string;
+}
+
 export default function Chat() {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
@@ -74,6 +86,8 @@ export default function Chat() {
   const [thinkingMode, setThinkingMode] = useState(false);
   const [webSearchMode, setWebSearchMode] = useState(false);
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  const [showUpdatePopup, setShowUpdatePopup] = useState(false);
   const logsEndRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -116,6 +130,21 @@ export default function Chat() {
         console.error('Error loading conversations:', error);
       }
     }
+
+    // Check for updates on app startup
+    const checkUpdatesOnStartup = async () => {
+      try {
+        const updateResult = await checkForUpdates();
+        if (updateResult.available) {
+          setUpdateInfo(updateResult);
+          setShowUpdatePopup(true);
+        }
+      } catch (error) {
+        console.error('Failed to check for updates:', error);
+      }
+    };
+
+    checkUpdatesOnStartup();
 
     // Handle responsive sidebar behavior
     const handleResize = () => {
@@ -1504,6 +1533,25 @@ export default function Chat() {
         onPortChanged={handlePortChanged}
         onOllamaStatusChange={handleOllamaStatusChange}
       />
+
+      {/* Update Checker Popup */}
+      <UpdateChecker 
+        isOpen={showUpdatePopup}
+        onClose={() => setShowUpdatePopup(false)}
+        autoCheck={false}
+      />
+
+      {/* Update Popup - for automatic update notifications */}
+      {updateInfo && updateInfo.available && (
+        <UpdatePopup 
+          isOpen={showUpdatePopup}
+          onClose={() => {
+            setShowUpdatePopup(false);
+            setUpdateInfo(null);
+          }}
+          updateInfo={updateInfo}
+        />
+      )}
     </div>
   );
 }

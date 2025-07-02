@@ -63,6 +63,16 @@ jobs:
         if: matrix.platform == 'macos-latest'
         run: npm run tauri build -- --target universal-apple-darwin
 
+      - name: Rename macOS artifacts
+        if: matrix.platform == 'macos-latest'
+        run: |
+          echo "=== Renaming macOS artifacts to simple names ==="
+          # Find and rename DMG files
+          find src-tauri/target/universal-apple-darwin/release/bundle -name "*.dmg" -exec cp {} BeautifyOllama.dmg \; 2>/dev/null || echo "No DMG found in universal target"
+          find src-tauri/target/release/bundle -name "*.dmg" -exec cp {} BeautifyOllama.dmg \; 2>/dev/null || echo "No DMG found in release target"
+          # List what we created
+          ls -la BeautifyOllama.dmg 2>/dev/null || echo "No BeautifyOllama.dmg created"
+
       - name: Debug macOS artifacts
         if: matrix.platform == 'macos-latest'
         run: |
@@ -80,12 +90,34 @@ jobs:
         if: matrix.platform != 'macos-latest'
         run: npm run tauri build
 
+      - name: Rename Windows artifacts
+        if: matrix.platform == 'windows-latest'
+        run: |
+          echo "=== Renaming Windows artifacts to simple names ==="
+          # Find and rename Windows executables/installers
+          find src-tauri/target/release/bundle -name "*.msi" -exec cp {} BeautifyOllama.msi \; 2>/dev/null || echo "No MSI found"
+          find src-tauri/target/release/bundle -name "*.exe" -exec cp {} BeautifyOllama.exe \; 2>/dev/null || echo "No EXE found"
+          # List what we created
+          ls -la BeautifyOllama.* 2>/dev/null || echo "No renamed files created"
+
+      - name: Rename Linux artifacts
+        if: matrix.platform == 'ubuntu-latest'
+        run: |
+          echo "=== Renaming Linux artifacts to simple names ==="
+          # Find and rename Linux packages
+          find src-tauri/target/release/bundle -name "*.deb" -exec cp {} BeautifyOllama.deb \; 2>/dev/null || echo "No DEB found"
+          find src-tauri/target/release/bundle -name "*.AppImage" -exec cp {} BeautifyOllama.AppImage \; 2>/dev/null || echo "No AppImage found"
+          # List what we created
+          ls -la BeautifyOllama.* 2>/dev/null || echo "No renamed files created"
+
       - name: Upload artifacts (windows only)
         if: matrix.platform == 'windows-latest'
         uses: actions/upload-artifact@v4
         with:
           name: windows-artifacts
-          path: src-tauri/target/release/bundle/
+          path: |
+            BeautifyOllama.*
+            src-tauri/target/release/bundle/
 
       - name: Upload artifacts (macos)
         if: matrix.platform == 'macos-latest'
@@ -93,6 +125,7 @@ jobs:
         with:
           name: macos-artifacts
           path: |
+            BeautifyOllama.*
             src-tauri/target/universal-apple-darwin/release/bundle/
             src-tauri/target/release/bundle/
           if-no-files-found: warn
@@ -102,7 +135,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: linux-artifacts
-          path: src-tauri/target/release/bundle/
+          path: |
+            BeautifyOllama.*
+            src-tauri/target/release/bundle/
 
   create-release:
     needs: test-and-build
@@ -131,5 +166,8 @@ jobs:
           - **macOS**: .dmg file
           - **Linux**: .deb package or .AppImage portable app"
 
-          # Upload all artifacts
-          find artifacts -type f \( -name "*.msi" -o -name "*.exe" -o -name "*.dmg" -o -name "*.deb" -o -name "*.AppImage" \) -exec gh release upload ${{ github.ref_name }} {} \;
+          # Upload all artifacts with simple names first
+          find artifacts -type f \( -name "BeautifyOllama.msi" -o -name "BeautifyOllama.exe" -o -name "BeautifyOllama.dmg" -o -name "BeautifyOllama.deb" -o -name "BeautifyOllama.AppImage" \) -exec gh release upload ${{ github.ref_name }} {} \;
+          
+          # Upload any remaining artifacts with original names as fallback
+          find artifacts -type f \( -name "*.msi" -o -name "*.exe" -o -name "*.dmg" -o -name "*.deb" -o -name "*.AppImage" \) ! \( -name "BeautifyOllama.*" \) -exec gh release upload ${{ github.ref_name }} {} \;

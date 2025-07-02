@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getOllamaPort, setOllamaPort, checkOllamaStatus, listOllamaModels, forceRefreshModels, type OllamaStatus } from "@/app/services/ollamaService";
 import { invoke } from '@tauri-apps/api/core';
+import { UpdateChecker } from "@/components/UpdateChecker";
 
 interface SettingsProps {
   isOpen: boolean;
@@ -45,7 +46,10 @@ export function Settings({ isOpen, onClose, onPortChanged, onOllamaStatusChange 
 
   // Command logs
   const [commandLogs, setCommandLogs] = useState<CommandLog[]>([]);
-  const [activeTab, setActiveTab] = useState<'connection' | 'models' | 'logs'>('connection');
+  const [activeTab, setActiveTab] = useState<'connection' | 'models' | 'logs' | 'updates'>('connection');
+
+  // Update checker state
+  const [showUpdateChecker, setShowUpdateChecker] = useState(false);
 
   // Popular models for easy download
   const popularModels = [
@@ -320,6 +324,16 @@ export function Settings({ isOpen, onClose, onPortChanged, onOllamaStatusChange 
           >
             Logs ({commandLogs.length})
           </button>
+          <button
+            onClick={() => setActiveTab('updates')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'updates'
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}
+          >
+            Updates
+          </button>
         </div>
 
         {/* Content */}
@@ -591,7 +605,81 @@ export function Settings({ isOpen, onClose, onPortChanged, onOllamaStatusChange 
               )}
             </div>
           )}
+
+          {activeTab === 'updates' && (
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  App Updates
+                </h3>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0">
+                      <RefreshCw className="h-5 w-5 text-blue-500 mt-0.5" />
+                    </div>
+                    <div className="ml-3">
+                      <h4 className="text-sm font-medium text-blue-900 dark:text-blue-300 mb-2">
+                        Auto-Update Feature
+                      </h4>
+                      <p className="text-sm text-blue-700 dark:text-blue-400 mb-3">
+                        Keep your BeautifyOllama app up to date with the latest features and security improvements.
+                        Updates are downloaded from our official GitHub releases.
+                      </p>
+                      
+                      <Button
+                        onClick={() => setShowUpdateChecker(true)}
+                        className="w-full sm:w-auto"
+                      >
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Check for Updates
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                  <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-3">
+                    Release Information
+                  </h4>
+                  <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                    <div className="flex justify-between">
+                      <span>Current Version:</span>
+                      <span className="font-mono">v1.6.0</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Release Channel:</span>
+                      <span>Stable</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Auto-Check:</span>
+                      <span className="text-green-600 dark:text-green-400">Enabled</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/30 rounded-md p-3">
+                  <p className="mb-1">
+                    <strong>How it works:</strong> Updates are automatically checked when the app starts. 
+                    You can manually check for updates at any time using the button above.
+                  </p>
+                  <p>
+                    Downloaded updates need to be manually installed - the app will guide you through the process.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
+
+        {/* Update Checker Modal */}
+        <UpdateChecker 
+          isOpen={showUpdateChecker}
+          onClose={() => setShowUpdateChecker(false)}
+          autoCheck={true}
+        />
 
         {/* Footer */}
         <div className="flex items-center justify-end gap-2 p-6 border-t border-gray-200 dark:border-gray-700">

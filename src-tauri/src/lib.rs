@@ -3,6 +3,9 @@ use std::path::Path;
 use std::net::TcpStream;
 use std::time::Duration;
 use serde_json::json;
+use serde::{Deserialize, Serialize};
+use reqwest;
+use semver::Version;
 
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
@@ -1477,6 +1480,7 @@ async fn summarize_with_ollama(context: &str, thinking: bool) -> Result<String, 
 pub fn run() {
   tauri::Builder::default()
     .plugin(tauri_plugin_http::init())
+    .plugin(tauri_plugin_shell::init())
     .invoke_handler(tauri::generate_handler![
         get_platform,
         check_ollama_installation_paths,
@@ -1500,7 +1504,12 @@ pub fn run() {
         search_web,
         get_ollama_port_config,
         set_ollama_port_config,
-        get_ollama_url
+        get_ollama_url,
+        check_for_updates,
+        download_update,
+        get_current_version,
+        open_downloads_folder,
+        open_downloads_folder
     ])
     .setup(|app| {
       if cfg!(debug_assertions) {
@@ -1590,4 +1599,231 @@ fn format_search_results_from_python(json: &serde_json::Value, query: &str) -> R
     Ok(final_context)
 }
 
-// Legacy helper functions (now unused but kept for compatibility)
+// Update checker functionality
+
+#[derive(Debug, Serialize, Deserialize)]
+struct GitHubRelease {
+    tag_name: String,
+    name: String,
+    body: String,
+    html_url: String,
+    assets: Vec<GitHubAsset>,
+    published_at: String,
+    prerelease: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct GitHubAsset {
+    name: String,
+    browser_download_url: String,
+    content_type: String,
+    size: u64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct UpdateInfo {
+    available: bool,
+    current_version: String,
+    latest_version: String,
+    download_url: Option<String>,
+    release_notes: Option<String>,
+    release_url: Option<String>,
+}
+
+const GITHUB_REPO: &str = "falkon2/BeautifyOllama";
+const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+#[tauri::command]
+async fn check_for_updates() -> Result<UpdateInfo, String> {
+    let client = reqwest::Client::new();
+    
+    // Get the latest release from GitHub API
+    let url = format!("https://api.github.com/repos/{}/releases/latest", GITHUB_REPO);
+    
+    let response = client
+        .get(&url)
+        .header("User-Agent", "BeautifyOllama-UpdateChecker")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch release info: {}", e))?;
+    
+    if !response.status().is_success() {
+        return Err(format!("GitHub API request failed: {}", response.status()));
+    }
+    
+    let release: GitHubRelease = response
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse release info: {}", e))?;
+    
+    let current_version = CURRENT_VERSION;
+    let latest_version = release.tag_name.trim_start_matches('v');
+    
+    // Parse versions for comparison
+    let current_ver = Version::parse(current_version)
+        .map_err(|e| format!("Invalid current version: {}", e))?;
+    let latest_ver = Version::parse(latest_version)
+        .map_err(|e| format!("Invalid latest version: {}", e))?;
+    
+    let update_available = latest_ver > current_ver;
+    
+    // Find appropriate download asset for current platform
+    let platform = get_platform();
+    let download_url = find_download_url_for_platform(&release.assets, &platform);
+    
+    Ok(UpdateInfo {
+        available: update_available,
+        current_version: current_version.to_string(),
+        latest_version: latest_version.to_string(),
+        download_url,
+        release_notes: Some(release.body),
+        release_url: Some(release.html_url),
+    })
+}
+
+#[tauri::command]
+async fn download_update(download_url: String) -> Result<String, String> {
+    let client = reqwest::Client::new();
+    
+    // Extract filename from URL
+    let filename = download_url
+        .split('/')
+        .last()
+        .unwrap_or("update")
+        .to_string();
+    
+    // Get downloads directory
+    let downloads_dir = if cfg!(target_os = "macos") {
+        format!("{}/Downloads", std::env::var("HOME").unwrap_or_default())
+    } else if cfg!(target_os = "windows") {
+        format!("{}/Downloads", std::env::var("USERPROFILE").unwrap_or_default())
+    } else {
+        format!("{}/Downloads", std::env::var("HOME").unwrap_or_default())
+    };
+    
+    let file_path = format!("{}/{}", downloads_dir, filename);
+    
+    // Download the file
+    let response = client
+        .get(&download_url)
+        .header("User-Agent", "BeautifyOllama-UpdateChecker")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to download update: {}", e))?;
+    
+    if !response.status().is_success() {
+        return Err(format!("Download failed: {}", response.status()));
+    }
+    
+    let bytes = response
+        .bytes()
+        .await
+        .map_err(|e| format!("Failed to read download: {}", e))?;
+    
+    // Write to file
+    std::fs::write(&file_path, bytes)
+        .map_err(|e| format!("Failed to save update: {}", e))?;
+    
+    Ok(file_path)
+}
+
+#[tauri::command]
+fn get_current_version() -> String {
+    CURRENT_VERSION.to_string()
+}
+
+fn find_download_url_for_platform(assets: &[GitHubAsset], platform: &str) -> Option<String> {
+    // Look for platform-specific assets with simple names first
+    match platform {
+        "macos" => {
+            // First, look for simple universal DMG
+            for asset in assets {
+                let name = asset.name.to_lowercase();
+                if name == "beautifyollama.dmg" {
+                    return Some(asset.browser_download_url.clone());
+                }
+            }
+            // Fallback: look for universal DMG files (preferred)
+            for asset in assets {
+                let name = asset.name.to_lowercase();
+                if name.ends_with(".dmg") && (name.contains("universal") || name.contains("macos")) {
+                    return Some(asset.browser_download_url.clone());
+                }
+            }
+            // Fallback: look for any Mac-compatible DMG (avoid arch-specific ones)
+            for asset in assets {
+                let name = asset.name.to_lowercase();
+                if name.ends_with(".dmg") && !name.contains("aarch64") && !name.contains("x86_64") {
+                    if name.contains("mac") || name.contains("darwin") {
+                        return Some(asset.browser_download_url.clone());
+                    }
+                }
+            }
+            // Last resort: any DMG file
+            for asset in assets {
+                let name = asset.name.to_lowercase();
+                if name.ends_with(".dmg") {
+                    return Some(asset.browser_download_url.clone());
+                }
+            }
+        }
+        "windows" => {
+            // First, look for simple Windows executables
+            for asset in assets {
+                let name = asset.name.to_lowercase();
+                if name == "beautifyollama.msi" || name == "beautifyollama.exe" {
+                    return Some(asset.browser_download_url.clone());
+                }
+            }
+            // Fallback: look for any Windows installer
+            for asset in assets {
+                let name = asset.name.to_lowercase();
+                if name.contains("win") || name.contains("windows") || name.ends_with(".msi") || name.ends_with(".exe") {
+                    return Some(asset.browser_download_url.clone());
+                }
+            }
+        }
+        "linux" => {
+            // First, look for simple Linux packages
+            for asset in assets {
+                let name = asset.name.to_lowercase();
+                if name == "beautifyollama.deb" || name == "beautifyollama.appimage" {
+                    return Some(asset.browser_download_url.clone());
+                }
+            }
+            // Fallback: look for any Linux package
+            for asset in assets {
+                let name = asset.name.to_lowercase();
+                if name.contains("linux") || name.ends_with(".appimage") || name.ends_with(".deb") {
+                    return Some(asset.browser_download_url.clone());
+                }
+            }
+        }
+        _ => {}
+    }
+    None
+}
+
+#[tauri::command]
+fn open_downloads_folder() -> Result<String, String> {
+    let downloads_dir = if cfg!(target_os = "macos") {
+        format!("{}/Downloads", std::env::var("HOME").unwrap_or_default())
+    } else if cfg!(target_os = "windows") {
+        format!("{}/Downloads", std::env::var("USERPROFILE").unwrap_or_default())
+    } else {
+        format!("{}/Downloads", std::env::var("HOME").unwrap_or_default())
+    };
+
+    let result = if cfg!(target_os = "macos") {
+        Command::new("open").arg(&downloads_dir).output()
+    } else if cfg!(target_os = "windows") {
+        Command::new("explorer").arg(&downloads_dir).output()
+    } else {
+        Command::new("xdg-open").arg(&downloads_dir).output()
+    };
+
+    match result {
+        Ok(_) => Ok(format!("Opened downloads folder: {}", downloads_dir)),
+        Err(e) => Err(format!("Failed to open downloads folder: {}", e)),
+    }
+}
