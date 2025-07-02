@@ -155,66 +155,14 @@ For detailed web search setup and configuration, see [Web Search Integration Gui
 
 ### Step 4: Install BeautifyOllama
 
-```bash
-# Clone the repository
-git clone https://github.com/falkon2/BeautifyOllama.git
-cd BeautifyOllama
 
-# Install dependencies
-npm install
-# or
-yarn install
-# or  
-pnpm install
+```#Install The Latest Release.```
 
-# Start development server
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-```
 
 ### Step 5: Access the Application
 
-Open your browser and navigate to [http://localhost:3000](http://localhost:3000)
+Open your App Launcher And Search for BeautifyOllama
 
-## 🔧 Configuration
-
-### Environment Variables
-
-Create a `.env.local` file in the project root:
-
-```env
-# Ollama Configuration
-NEXT_PUBLIC_OLLAMA_API_URL=http://localhost:11434
-NEXT_PUBLIC_DEFAULT_MODEL=llama2
-OLLAMA_PORT=11434
-
-# Web Search Configuration
-SEARXNG_INSTANCES=https://search.example.com,https://searx.example.org
-
-# Feature Flags
-NEXT_PUBLIC_ENABLE_ANALYTICS=false
-NEXT_PUBLIC_ENABLE_CLOUD_SYNC=false
-
-# Future API Keys
-# OPENAI_API_KEY=your_openai_key_here
-# ANTHROPIC_API_KEY=your_anthropic_key_here
-```
-
-### Advanced Configuration
-
-For custom Ollama installations or advanced setups, modify the configuration in `src/config/ollama.ts`:
-
-```typescript
-export const ollamaConfig = {
-  apiUrl: process.env.NEXT_PUBLIC_OLLAMA_API_URL || 'http://localhost:11434',
-  defaultModel: process.env.NEXT_PUBLIC_DEFAULT_MODEL || 'llama2',
-  timeout: 30000,
-  maxRetries: 3
-}
-```
 
 ## 📚 Usage
 
