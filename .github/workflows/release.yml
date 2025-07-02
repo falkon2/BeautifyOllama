@@ -92,13 +92,34 @@ jobs:
 
       - name: Rename Windows artifacts
         if: matrix.platform == 'windows-latest'
+        shell: powershell
         run: |
-          echo "=== Renaming Windows artifacts to simple names ==="
+          Write-Host "=== Renaming Windows artifacts to simple names ==="
           # Find and rename Windows executables/installers
-          find src-tauri/target/release/bundle -name "*.msi" -exec cp {} BeautifyOllama.msi \; 2>/dev/null || echo "No MSI found"
-          find src-tauri/target/release/bundle -name "*.exe" -exec cp {} BeautifyOllama.exe \; 2>/dev/null || echo "No EXE found"
+          $msiFiles = Get-ChildItem -Path "src-tauri\target\release\bundle" -Recurse -Filter "*.msi" -ErrorAction SilentlyContinue
+          if ($msiFiles) {
+            Copy-Item $msiFiles[0].FullName "BeautifyOllama.msi"
+            Write-Host "Copied MSI: $($msiFiles[0].Name) -> BeautifyOllama.msi"
+          } else {
+            Write-Host "No MSI found"
+          }
+          
+          $exeFiles = Get-ChildItem -Path "src-tauri\target\release\bundle" -Recurse -Filter "*.exe" -ErrorAction SilentlyContinue
+          if ($exeFiles) {
+            Copy-Item $exeFiles[0].FullName "BeautifyOllama.exe"
+            Write-Host "Copied EXE: $($exeFiles[0].Name) -> BeautifyOllama.exe"
+          } else {
+            Write-Host "No EXE found"
+          }
+          
           # List what we created
-          ls -la BeautifyOllama.* 2>/dev/null || echo "No renamed files created"
+          $createdFiles = Get-ChildItem -Filter "BeautifyOllama.*" -ErrorAction SilentlyContinue
+          if ($createdFiles) {
+            Write-Host "Created files:"
+            $createdFiles | ForEach-Object { Write-Host "  $($_.Name) ($($_.Length) bytes)" }
+          } else {
+            Write-Host "No renamed files created"
+          }
 
       - name: Rename Linux artifacts
         if: matrix.platform == 'ubuntu-latest'
