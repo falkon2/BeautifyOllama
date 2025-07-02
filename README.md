@@ -156,7 +156,7 @@ For detailed web search setup and configuration, see [Web Search Integration Gui
 ### Step 4: Install BeautifyOllama
 
 
-```#Install The Latest Release.```
+# Install The Latest Release.
 
 
 ### Step 5: Access the Application
